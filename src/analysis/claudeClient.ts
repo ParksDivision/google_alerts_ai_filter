@@ -155,8 +155,8 @@ export async function analyzeText(
     }
     
     // Add the request to the rate-limited queue
-    const message = await requestQueue.add(() => 
-      client.messages.create({
+    const responseData = await requestQueue.add(async () => {
+      return await client.messages.create({
         model: CONFIG.claude.model,
         max_tokens: maxResponseTokens,
         messages: [
@@ -165,16 +165,32 @@ export async function analyzeText(
             content: `${prompt}\n\nText to analyze:\n\n${text}`,
           },
         ],
-      })
-    );
+      });
+    });
     
-    // Update cost tracking with actual token usage
-    await updateCostTracking(
-      message.usage.input_tokens,
-      message.usage.output_tokens
-    );
+    // Extract usage information if available
+    let inputTokenCount = estimatedInputTokens;
+    let outputTokenCount = Math.ceil(maxResponseTokens / 2); // Default estimate
     
-    return message.content[0].text;
+    if (responseData && responseData.usage) {
+      inputTokenCount = responseData.usage.input_tokens;
+      outputTokenCount = responseData.usage.output_tokens;
+    } else {
+      console.warn('Token usage information not available in response, using estimates');
+    }
+    
+    // Update cost tracking
+    await updateCostTracking(inputTokenCount, outputTokenCount);
+    
+    // Extract content from response
+    const responseContent = responseData && 
+                           responseData.content && 
+                           responseData.content[0] && 
+                           responseData.content[0].text
+                           ? responseData.content[0].text 
+                           : null;
+    
+    return responseContent;
   } catch (error: any) {
     console.error('Error analyzing text with Claude:', error.message);
     return null;
