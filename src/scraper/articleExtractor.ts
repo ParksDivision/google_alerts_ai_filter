@@ -1,8 +1,7 @@
 import * as cheerio from 'cheerio';
 import sanitizeHtml from 'sanitize-html';
 import TurndownService from 'turndown';
-import { fetch } from 'undici';
-import { setTimeout as sleep } from 'node:timers/promises';
+import { fetch, RequestInit } from 'undici';
 import { backOff } from 'exponential-backoff';
 import CONFIG from '../config.js';
 
