@@ -4,11 +4,11 @@ import { parse } from 'fast-csv';
 import { createReadStream } from 'node:fs';
 import { format as formatCsv } from '@fast-csv/format';
 import { createWriteStream } from 'node:fs';
-import { ArticleInput } from '../scraper/index.js';
+import { ArticleInput, ArticleOutput } from '../scraper/index.js';
 import { AnalyzedArticle } from '../analysis/index.js';
 
 /**
- * Read CSV file with article links
+ * Read article links from CSV (basic format for initial scraping)
  */
 export async function readArticleLinks(filePath: string): Promise<ArticleInput[]> {
   return new Promise((resolve, reject) => {
@@ -29,10 +29,33 @@ export async function readArticleLinks(filePath: string): Promise<ArticleInput[]
 }
 
 /**
+ * Read previously scraped articles from CSV (including content)
+ */
+export async function readScrapedArticles(filePath: string): Promise<ArticleOutput[]> {
+  return new Promise((resolve, reject) => {
+    const articles: ArticleOutput[] = [];
+    
+    createReadStream(filePath)
+      .pipe(parse({ headers: true, trim: true }))
+      .on('error', error => reject(error))
+      .on('data', (row: any) => {
+        articles.push({
+          alertName: row['Alert Name'] || '',
+          title: row['Title'] || '',
+          link: row['Link'] || '',
+          content: row['Content'] || '',
+          error: row['Error'] || undefined
+        });
+      })
+      .on('end', () => resolve(articles));
+  });
+}
+
+/**
  * Write scraped articles to CSV
  */
 export async function writeScrapedArticles(
-  articles: (ArticleInput & { content: string })[],
+  articles: (ArticleInput & { content: string; error?: string })[],
   outputPath: string
 ): Promise<string> {
   try {
@@ -52,6 +75,7 @@ export async function writeScrapedArticles(
           'Title': article.title,
           'Link': article.link,
           'Content': article.content,
+          'Error': article.error || ''
         });
       });
       
@@ -92,6 +116,7 @@ export async function writeAnalyzedArticles(
           'Link': article.link,
           'Relevance Explanation': article.relevanceExplanation,
           'Content': article.content,
+          'Error': article.error || ''
         });
       });
       

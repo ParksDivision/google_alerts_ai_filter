@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import XLSX from 'xlsx-js-style';
-import { writeAnalyzedArticles } from './cvsHandler.js';
+import { writeAnalyzedArticles } from './csvHandler.js';
 import { AnalyzedArticle } from '../analysis/index.js';
 import { ExportFormat } from '../config.js';
 import CONFIG from '../config.js';

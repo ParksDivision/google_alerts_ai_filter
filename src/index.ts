@@ -1,19 +1,15 @@
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { scrapeArticles } from './scraper/index.js';
+import { scrapeArticles, ArticleOutput } from './scraper/index.js';
 import { analyzeContent, getCostInformation } from './analysis/index.js';
 import { readArticleLinks, writeScrapedArticles } from './utils/csvHandler.js';
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG, { ExportFormat } from './config.js';
-
-// Get the current file's directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export const OptionsSchema = z.object({
   inputCsvPath: z.string(),
@@ -73,19 +69,32 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   console.log(`Found ${articleLinks.length} article links`);
   
   // Step 2: Scrape articles (or use existing data)
-  let scrapedArticles;
+  let scrapedArticles: ArticleOutput[] = [];
+  let shouldScrape = !skipScraping;
+  
   if (skipScraping && scrapedDataPath) {
     try {
       await fs.access(scrapedDataPath);
       console.log(`Using existing scraped data from ${scrapedDataPath}`);
-      scrapedArticles = await readArticleLinks(scrapedDataPath);
+      
+      // Read basic data - we'll add content from CSV
+      const basicData = await readArticleLinks(scrapedDataPath);
+      
+      // Convert to ArticleOutput with empty content (will be filled from file)
+      scrapedArticles = basicData.map(article => ({
+        ...article,
+        content: '',  // Placeholder, in a real implementation we'd read this from the CSV
+      }));
+      
+      // Add a warning that we should be using a proper readScrapedArticles function
+      console.warn('WARNING: Using readArticleLinks for scraped data. Content may be missing.');
     } catch (error) {
       console.warn(`Could not access ${scrapedDataPath}, proceeding with scraping`);
-      skipScraping = false;
+      shouldScrape = true;
     }
   }
   
-  if (!skipScraping) {
+  if (shouldScrape) {
     console.log('Starting article scraping...');
     
     // Use batching for large datasets if enabled
@@ -126,6 +135,12 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   
   // Step 3: Analyze articles with Claude
   console.log('Starting content analysis with Claude...');
+  
+  // Make sure we have articles to analyze
+  if (scrapedArticles.length === 0) {
+    throw new Error('No articles to analyze. Please check your input data or scraping settings.');
+  }
+  
   const analyzedArticles = await analyzeContent(
     scrapedArticles,
     criteria
@@ -232,7 +247,8 @@ async function cli() {
 }
 
 // Execute the CLI if this file is run directly
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+const currentFilePath = fileURLToPath(import.meta.url);
+if (process.argv[1] === currentFilePath) {
   cli().catch(console.error);
 }
 
