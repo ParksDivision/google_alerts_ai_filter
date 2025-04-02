@@ -32,7 +32,7 @@ export async function readArticleLinks(filePath: string): Promise<ArticleInput[]
  * Write scraped articles to CSV
  */
 export async function writeScrapedArticles(
-  articles: ArticleInput & { content: string }[],
+  articles: (ArticleInput & { content: string })[],
   outputPath: string
 ): Promise<string> {
   try {
