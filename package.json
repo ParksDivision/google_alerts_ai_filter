@@ -21,11 +21,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.19.0",
+    "@anthropic-ai/sdk": "^0.19.2",
     "@fast-csv/format": "^4.3.5",
     "cheerio": "1.0.0-rc.12",
     "dotenv": "^16.4.1",
     "exponential-backoff": "^3.1.1",
+    "express": "^5.1.0",
     "fast-csv": "^5.0.0",
     "node-fetch": "^3.3.2",
     "p-limit": "^5.0.0",
@@ -38,6 +39,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/express": "^5.0.1",
     "@types/node": "^20.11.0",
     "@types/sanitize-html": "^2.9.5",
     "@types/turndown": "^5.0.4",
