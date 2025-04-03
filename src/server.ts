@@ -5,8 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { promises as fs } from 'node:fs';
 import CONFIG from './config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-
 /**
  * Create and configure the Express server
  */
@@ -21,7 +19,7 @@ export async function createServer(port = 3000, customOutputDir?: string) {
   app.use(express.static(outputDir));
   
   // Define route handlers
-  async function serveLatestReport(req: any, res: any) {
+  async function serveLatestReport(_req: any, res: any) {
     try {
       const files = await fs.readdir(outputDir);
       
@@ -54,7 +52,7 @@ export async function createServer(port = 3000, customOutputDir?: string) {
     }
   }
 
-  async function listReports(req: any, res: any) {
+  async function listReports(_req: any, res: any) {
     try {
       const files = await fs.readdir(outputDir);
       
@@ -156,7 +154,7 @@ export async function createServer(port = 3000, customOutputDir?: string) {
     }
   }
 
-  async function getApiReports(req: any, res: any) {
+  async function getApiReports(_req: any, res: any) {
     try {
       const files = await fs.readdir(outputDir);
       

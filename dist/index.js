@@ -1,19 +1,16 @@
 // src/index.ts
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { scrapeArticles } from './scraper/index.js';
 import { analyzeContent, getCostInformation } from './analysis/index.js';
-import { readArticleLinks, writeScrapedArticles } from './utils/csvHandler.js';
+import { readArticleLinks, readScrapedArticles, writeScrapedArticles } from './utils/csvHandler.js';
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG from './config.js';
 import { createServer } from './server.js';
-// Get the current file's directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 export const OptionsSchema = z.object({
     inputCsvPath: z.string(),
     criteria: z.string(),
@@ -32,7 +29,7 @@ export const OptionsSchema = z.object({
 export async function runAnalysis(options) {
     // Validate options
     const validatedOptions = OptionsSchema.parse(options);
-    const { inputCsvPath, criteria, outputDir, skipScraping, scrapedDataPath, exportFormat, minRelevanceScore, includeFullContent, startServer, port } = validatedOptions;
+    const { inputCsvPath, criteria, outputDir, skipScraping: initialSkipScraping, scrapedDataPath, exportFormat, minRelevanceScore, includeFullContent, startServer, port } = validatedOptions;
     console.log('Starting RSS feed analysis process...');
     // Create output directory if it doesn't exist
     await fs.mkdir(outputDir, { recursive: true });
@@ -48,19 +45,20 @@ export async function runAnalysis(options) {
     const articleLinks = await readArticleLinks(inputCsvPath);
     console.log(`Found ${articleLinks.length} article links`);
     // Step 2: Scrape articles (or use existing data)
-    let scrapedArticles;
-    if (skipScraping && scrapedDataPath) {
+    let shouldScrape = !initialSkipScraping;
+    let scrapedArticles = [];
+    if (initialSkipScraping && scrapedDataPath) {
         try {
             await fs.access(scrapedDataPath);
             console.log(`Using existing scraped data from ${scrapedDataPath}`);
-            scrapedArticles = await readArticleLinks(scrapedDataPath);
+            scrapedArticles = await readScrapedArticles(scrapedDataPath);
         }
         catch (error) {
             console.warn(`Could not access ${scrapedDataPath}, proceeding with scraping`);
-            skipScraping = false;
+            shouldScrape = true;
         }
     }
-    if (!skipScraping) {
+    if (shouldScrape) {
         console.log('Starting article scraping...');
         // Use batching for large datasets if enabled
         if (CONFIG.performance.enableBatching && articleLinks.length > CONFIG.performance.batchSize) {
@@ -113,7 +111,7 @@ export async function runAnalysis(options) {
     // Step 6: Start server if requested
     if (startServer) {
         console.log(`\nStarting server to serve the results...`);
-        const server = await createServer(port, outputDir);
+        await createServer(port, outputDir);
         console.log(`\nYou can view the results at:`);
         console.log(`- Latest report: http://localhost:${port}/`);
         console.log(`- All reports: http://localhost:${port}/reports`);

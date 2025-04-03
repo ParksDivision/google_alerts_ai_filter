@@ -1,6 +1,6 @@
 // src/index.ts
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import yargs from 'yargs';
@@ -12,10 +12,6 @@ import { readArticleLinks, readScrapedArticles, writeScrapedArticles } from './u
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG, { ExportFormat } from './config.js';
 import { createServer } from './server.js';
-
-// Get the current file's directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export const OptionsSchema = z.object({
   inputCsvPath: z.string(),
@@ -162,7 +158,7 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   // Step 6: Start server if requested
   if (startServer) {
     console.log(`\nStarting server to serve the results...`);
-    const server = await createServer(port, outputDir);
+    await createServer(port, outputDir);
     console.log(`\nYou can view the results at:`);
     console.log(`- Latest report: http://localhost:${port}/`);
     console.log(`- All reports: http://localhost:${port}/reports`);
