@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { promises as fs } from 'node:fs';
 import CONFIG from './config.js';
 
+const __filename = fileURLToPath(import.meta.url);
+
 /**
  * Create and configure the Express server
  */

@@ -8,6 +8,8 @@ export declare const OptionsSchema: z.ZodObject<{
     exportFormat: z.ZodDefault<z.ZodOptional<z.ZodEnum<["csv", "excel", "json", "markdown", "html"]>>>;
     minRelevanceScore: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     includeFullContent: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    startServer: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    port: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     outputDir: string;
     includeFullContent: boolean;
@@ -16,6 +18,8 @@ export declare const OptionsSchema: z.ZodObject<{
     criteria: string;
     skipScraping: boolean;
     exportFormat: "csv" | "excel" | "json" | "markdown" | "html";
+    startServer: boolean;
+    port: number;
     scrapedDataPath?: string | undefined;
 }, {
     inputCsvPath: string;
@@ -26,6 +30,8 @@ export declare const OptionsSchema: z.ZodObject<{
     skipScraping?: boolean | undefined;
     scrapedDataPath?: string | undefined;
     exportFormat?: "csv" | "excel" | "json" | "markdown" | "html" | undefined;
+    startServer?: boolean | undefined;
+    port?: number | undefined;
 }>;
 export type RssAnalyzerOptions = z.infer<typeof OptionsSchema>;
 /**

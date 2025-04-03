@@ -1,5 +1,6 @@
+// src/index.ts
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import yargs from 'yargs';
@@ -7,9 +8,14 @@ import { hideBin } from 'yargs/helpers';
 
 import { scrapeArticles, ArticleOutput } from './scraper/index.js';
 import { analyzeContent, getCostInformation } from './analysis/index.js';
-import { readArticleLinks, writeScrapedArticles } from './utils/csvHandler.js';
+import { readArticleLinks, readScrapedArticles, writeScrapedArticles } from './utils/csvHandler.js';
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG, { ExportFormat } from './config.js';
+import { createServer } from './server.js';
+
+// Get the current file's directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export const OptionsSchema = z.object({
   inputCsvPath: z.string(),
@@ -20,6 +26,8 @@ export const OptionsSchema = z.object({
   exportFormat: z.enum(['csv', 'excel', 'json', 'markdown', 'html']).optional().default(CONFIG.export.defaultFormat),
   minRelevanceScore: z.number().min(0).max(100).optional().default(CONFIG.export.minRelevanceScore),
   includeFullContent: z.boolean().optional().default(CONFIG.export.includeFullContent),
+  startServer: z.boolean().optional().default(false),
+  port: z.number().optional().default(3000),
 });
 
 export type RssAnalyzerOptions = z.infer<typeof OptionsSchema>;
@@ -35,11 +43,13 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
     inputCsvPath,
     criteria,
     outputDir,
-    skipScraping,
+    skipScraping: initialSkipScraping,
     scrapedDataPath,
     exportFormat,
     minRelevanceScore,
-    includeFullContent
+    includeFullContent,
+    startServer,
+    port
   } = validatedOptions;
   
   console.log('Starting RSS feed analysis process...');
@@ -69,25 +79,14 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   console.log(`Found ${articleLinks.length} article links`);
   
   // Step 2: Scrape articles (or use existing data)
+  let shouldScrape = !initialSkipScraping;
   let scrapedArticles: ArticleOutput[] = [];
-  let shouldScrape = !skipScraping;
   
-  if (skipScraping && scrapedDataPath) {
+  if (initialSkipScraping && scrapedDataPath) {
     try {
       await fs.access(scrapedDataPath);
       console.log(`Using existing scraped data from ${scrapedDataPath}`);
-      
-      // Read basic data - we'll add content from CSV
-      const basicData = await readArticleLinks(scrapedDataPath);
-      
-      // Convert to ArticleOutput with empty content (will be filled from file)
-      scrapedArticles = basicData.map(article => ({
-        ...article,
-        content: '',  // Placeholder, in a real implementation we'd read this from the CSV
-      }));
-      
-      // Add a warning that we should be using a proper readScrapedArticles function
-      console.warn('WARNING: Using readArticleLinks for scraped data. Content may be missing.');
+      scrapedArticles = await readScrapedArticles(scrapedDataPath);
     } catch (error) {
       console.warn(`Could not access ${scrapedDataPath}, proceeding with scraping`);
       shouldScrape = true;
@@ -135,12 +134,6 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   
   // Step 3: Analyze articles with Claude
   console.log('Starting content analysis with Claude...');
-  
-  // Make sure we have articles to analyze
-  if (scrapedArticles.length === 0) {
-    throw new Error('No articles to analyze. Please check your input data or scraping settings.');
-  }
-  
   const analyzedArticles = await analyzeContent(
     scrapedArticles,
     criteria
@@ -165,6 +158,21 @@ export async function runAnalysis(options: RssAnalyzerOptions): Promise<string> 
   console.log(`Total input tokens: ${costInfo.inputTokens}`);
   console.log(`Total output tokens: ${costInfo.outputTokens}`);
   console.log(`Total requests: ${costInfo.requestCount}`);
+  
+  // Step 6: Start server if requested
+  if (startServer) {
+    console.log(`\nStarting server to serve the results...`);
+    const server = await createServer(port, outputDir);
+    console.log(`\nYou can view the results at:`);
+    console.log(`- Latest report: http://localhost:${port}/`);
+    console.log(`- All reports: http://localhost:${port}/reports`);
+    
+    // If we're specifically exporting HTML, give a direct link
+    if (exportFormat === 'html') {
+      const filename = exportedPath.split('/').pop();
+      console.log(`- Current report: http://localhost:${port}/${filename}`);
+    }
+  }
   
   return exportedPath;
 }
@@ -214,6 +222,33 @@ async function cli() {
             describe: 'Include full article content in export',
             type: 'boolean',
             default: CONFIG.export.includeFullContent,
+          })
+          .option('start-server', {
+            describe: 'Start a web server to view results immediately',
+            type: 'boolean',
+            default: false,
+          })
+          .option('port', {
+            describe: 'Port for the web server (if enabled)',
+            type: 'number',
+            default: 3000,
+          });
+      }
+    )
+    .command(
+      'serve [outputDir]',
+      'Start a server to serve existing reports',
+      (yargs) => {
+        return yargs
+          .positional('outputDir', {
+            describe: 'Directory containing report files',
+            type: 'string',
+            default: CONFIG.outputDir,
+          })
+          .option('port', {
+            describe: 'Port for the web server',
+            type: 'number',
+            default: 3000,
           });
       }
     )
@@ -236,19 +271,37 @@ async function cli() {
         exportFormat: argv.exportFormat as ExportFormat,
         minRelevanceScore: argv.minScore as number,
         includeFullContent: argv.includeContent as boolean,
+        startServer: argv.startServer as boolean,
+        port: argv.port as number,
       });
       
       console.log(`\nAnalysis complete! Results saved to: ${result}`);
+      
+      if (!argv.startServer) {
+        console.log('\nTo view the results with a web server, run:');
+        console.log(`npm run serve -- --port 3000 --output-dir ${argv.outputDir}`);
+      }
     } catch (error: any) {
       console.error('Error:', error.message);
+      process.exit(1);
+    }
+  }
+  else if (argv._[0] === 'serve') {
+    try {
+      const port = argv.port as number;
+      const outputDir = argv.outputDir as string;
+      
+      console.log(`Starting server for reports in ${outputDir}...`);
+      await createServer(port, outputDir);
+    } catch (error: any) {
+      console.error('Error starting server:', error.message);
       process.exit(1);
     }
   }
 }
 
 // Execute the CLI if this file is run directly
-const currentFilePath = fileURLToPath(import.meta.url);
-if (process.argv[1] === currentFilePath) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   cli().catch(console.error);
 }
 
