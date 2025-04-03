@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ExportFormat } from './config.js';
 export declare const OptionsSchema: z.ZodObject<{
     inputCsvPath: z.ZodString;
     criteria: z.ZodString;
@@ -38,4 +39,24 @@ export type RssAnalyzerOptions = z.infer<typeof OptionsSchema>;
  * Main function to run the RSS feed analysis process
  */
 export declare function runAnalysis(options: RssAnalyzerOptions): Promise<string>;
-export default runAnalysis;
+/**
+ * Process RSS feeds from a file and export to CSV format
+ */
+export declare function processRss(feedsFilePath: string, outputPath?: string): Promise<string>;
+/**
+ * Run the entire pipeline: process RSS feeds, analyze content, and start server
+ */
+export declare function runEntirePipeline(options: {
+    feedsFilePath: string;
+    criteriaFilePath?: string;
+    exportFormat?: ExportFormat;
+    minRelevanceScore?: number;
+    includeFullContent?: boolean;
+    port?: number;
+}): Promise<string>;
+declare const _default: {
+    runAnalysis: typeof runAnalysis;
+    processRss: typeof processRss;
+    runEntirePipeline: typeof runEntirePipeline;
+};
+export default _default;

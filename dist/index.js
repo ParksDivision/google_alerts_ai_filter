@@ -11,6 +11,8 @@ import { readArticleLinks, readScrapedArticles, writeScrapedArticles } from './u
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG from './config.js';
 import { createServer } from './server.js';
+import { processAndExportRssFeeds } from './rss/feedProcessor.js';
+import { loadAnalysisCriteria } from './utils/criteriaUtils.js';
 export const OptionsSchema = z.object({
     inputCsvPath: z.string(),
     criteria: z.string(),
@@ -123,6 +125,44 @@ export async function runAnalysis(options) {
     }
     return exportedPath;
 }
+/**
+ * Process RSS feeds from a file and export to CSV format
+ */
+export async function processRss(feedsFilePath, outputPath) {
+    console.log(`Processing RSS feeds from ${feedsFilePath}`);
+    return processAndExportRssFeeds(feedsFilePath, outputPath);
+}
+/**
+ * Run the entire pipeline: process RSS feeds, analyze content, and start server
+ */
+export async function runEntirePipeline(options) {
+    const { feedsFilePath, criteriaFilePath, exportFormat = CONFIG.export.defaultFormat, minRelevanceScore = CONFIG.export.minRelevanceScore, includeFullContent = CONFIG.export.includeFullContent, port = 3000 } = options;
+    // Step 1: Process RSS feeds to CSV
+    console.log('\n== STEP 1: PROCESSING RSS FEEDS ==');
+    const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+    const csvOutputPath = join(CONFIG.inputDir, `processed-feeds-${timestamp}.csv`);
+    const processedCsvPath = await processRss(feedsFilePath, csvOutputPath);
+    console.log(`RSS feeds processed to: ${processedCsvPath}`);
+    // Step 2: Load analysis criteria
+    console.log('\n== STEP 2: LOADING CRITERIA ==');
+    const criteria = await loadAnalysisCriteria(criteriaFilePath);
+    console.log('Criteria loaded successfully.');
+    // Step 3: Run analysis
+    console.log('\n== STEP 3: RUNNING ANALYSIS ==');
+    const analysisResult = await runAnalysis({
+        inputCsvPath: processedCsvPath,
+        criteria,
+        outputDir: CONFIG.outputDir,
+        exportFormat,
+        minRelevanceScore,
+        includeFullContent,
+        startServer: true,
+        port
+    });
+    console.log('\n== PIPELINE COMPLETE ==');
+    console.log(`Final output: ${analysisResult}`);
+    return analysisResult;
+}
 // Command line interface handler
 async function cli() {
     const argv = await yargs(hideBin(process.argv))
@@ -190,6 +230,51 @@ async function cli() {
             default: 3000,
         });
     })
+        .command('process-rss [feedsFile] [outputPath]', 'Process RSS feeds and convert to CSV format', (yargs) => {
+        return yargs
+            .positional('feedsFile', {
+            describe: 'Path to the CSV file containing RSS feed URLs',
+            type: 'string',
+            default: CONFIG.rss.feedsFilePath,
+        })
+            .positional('outputPath', {
+            describe: 'Output path for the processed CSV',
+            type: 'string',
+        });
+    })
+        .command('run-all [feedsFile] [criteriaFile]', 'Run the complete pipeline: Process RSS feeds, analyze content, and serve results', (yargs) => {
+        return yargs
+            .positional('feedsFile', {
+            describe: 'Path to the CSV file containing RSS feed URLs',
+            type: 'string',
+            default: CONFIG.rss.feedsFilePath,
+        })
+            .positional('criteriaFile', {
+            describe: 'Path to file containing analysis criteria',
+            type: 'string',
+        })
+            .option('export-format', {
+            describe: 'Format for exporting results (csv, excel, json, markdown, html)',
+            type: 'string',
+            choices: ['csv', 'excel', 'json', 'markdown', 'html'],
+            default: CONFIG.export.defaultFormat,
+        })
+            .option('min-score', {
+            describe: 'Minimum relevance score (0-100) for including articles',
+            type: 'number',
+            default: CONFIG.export.minRelevanceScore,
+        })
+            .option('include-content', {
+            describe: 'Include full article content in export',
+            type: 'boolean',
+            default: CONFIG.export.includeFullContent,
+        })
+            .option('port', {
+            describe: 'Port for the web server',
+            type: 'number',
+            default: 3000,
+        });
+    })
         .demandCommand(1)
         .help()
         .strict()
@@ -233,10 +318,46 @@ async function cli() {
             process.exit(1);
         }
     }
+    else if (argv._[0] === 'process-rss') {
+        try {
+            const feedsFile = argv.feedsFile;
+            const outputPath = argv.outputPath;
+            const result = await processRss(feedsFile, outputPath);
+            console.log(`\nRSS processing complete! Results saved to: ${result}`);
+        }
+        catch (error) {
+            console.error('Error:', error.message);
+            process.exit(1);
+        }
+    }
+    else if (argv._[0] === 'run-all') {
+        try {
+            const feedsFile = argv.feedsFile;
+            const criteriaFile = argv.criteriaFile;
+            const result = await runEntirePipeline({
+                feedsFilePath: feedsFile,
+                criteriaFilePath: criteriaFile,
+                exportFormat: argv.exportFormat,
+                minRelevanceScore: argv.minScore,
+                includeFullContent: argv.includeContent,
+                port: argv.port,
+            });
+            console.log(`\nComplete pipeline execution finished successfully!`);
+            console.log(`Results available at: http://localhost:${argv.port}/`);
+        }
+        catch (error) {
+            console.error('Error in pipeline execution:', error.message);
+            process.exit(1);
+        }
+    }
 }
 // Execute the CLI if this file is run directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     cli().catch(console.error);
 }
-export default runAnalysis;
+export default {
+    runAnalysis,
+    processRss,
+    runEntirePipeline
+};
 //# sourceMappingURL=index.js.map

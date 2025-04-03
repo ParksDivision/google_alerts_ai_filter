@@ -1,0 +1,6 @@
+Feed URL,Alert Name
+https://news.ycombinator.com/rss,Hacker News
+https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,NYT Technology
+https://feeds.bbci.co.uk/news/technology/rss.xml,BBC Tech News
+https://www.theverge.com/rss/index.xml,The Verge
+https://techcrunch.com/feed/,TechCrunch

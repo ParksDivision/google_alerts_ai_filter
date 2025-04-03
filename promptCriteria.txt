@@ -1,0 +1,9 @@
+Analyze this article for information about artificial intelligence and machine learning developments.
+Consider:
+1. Mentions of specific AI technologies (neural networks, GPT models, transformer architectures, etc.)
+2. Applications in business, science, or consumer products
+3. Technical innovations or breakthroughs in AI research
+4. Ethical considerations or regulatory developments
+5. Industry impact and real-world implementations
+
+The most relevant articles will contain specific technical details about recent AI advances, applications, or important developments in the field with clear descriptions of the technology.

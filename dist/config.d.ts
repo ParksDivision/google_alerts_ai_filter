@@ -2,6 +2,25 @@ import { z } from 'zod';
 declare const ConfigSchema: z.ZodObject<{
     inputDir: z.ZodDefault<z.ZodString>;
     outputDir: z.ZodDefault<z.ZodString>;
+    rss: z.ZodObject<{
+        feedsFilePath: z.ZodDefault<z.ZodString>;
+        maxConcurrent: z.ZodDefault<z.ZodNumber>;
+        requestTimeout: z.ZodDefault<z.ZodNumber>;
+        requestDelay: z.ZodDefault<z.ZodNumber>;
+        retries: z.ZodDefault<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        feedsFilePath: string;
+        maxConcurrent: number;
+        requestTimeout: number;
+        requestDelay: number;
+        retries: number;
+    }, {
+        feedsFilePath?: string | undefined;
+        maxConcurrent?: number | undefined;
+        requestTimeout?: number | undefined;
+        requestDelay?: number | undefined;
+        retries?: number | undefined;
+    }>;
     scraper: z.ZodObject<{
         maxConcurrent: z.ZodDefault<z.ZodNumber>;
         requestTimeout: z.ZodDefault<z.ZodNumber>;
@@ -82,6 +101,13 @@ declare const ConfigSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     inputDir: string;
     outputDir: string;
+    rss: {
+        feedsFilePath: string;
+        maxConcurrent: number;
+        requestTimeout: number;
+        requestDelay: number;
+        retries: number;
+    };
     scraper: {
         maxConcurrent: number;
         requestTimeout: number;
@@ -112,6 +138,13 @@ declare const ConfigSchema: z.ZodObject<{
     };
     logLevel: "error" | "warn" | "info" | "debug";
 }, {
+    rss: {
+        feedsFilePath?: string | undefined;
+        maxConcurrent?: number | undefined;
+        requestTimeout?: number | undefined;
+        requestDelay?: number | undefined;
+        retries?: number | undefined;
+    };
     scraper: {
         maxConcurrent?: number | undefined;
         requestTimeout?: number | undefined;
@@ -147,6 +180,13 @@ declare const ConfigSchema: z.ZodObject<{
 export declare const CONFIG: {
     inputDir: string;
     outputDir: string;
+    rss: {
+        feedsFilePath: string;
+        maxConcurrent: number;
+        requestTimeout: number;
+        requestDelay: number;
+        retries: number;
+    };
     scraper: {
         maxConcurrent: number;
         requestTimeout: number;

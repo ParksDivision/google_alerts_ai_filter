@@ -1,9 +1,10 @@
 # RSS Content Analyzer
 
-A secure, modern tool to scrape, analyze, and sort RSS feed content using Claude Haiku.
+A secure, modern tool to fetch RSS feeds, scrape, analyze, and sort content using Claude Haiku.
 
 ## Features
 
+- **RSS Feed Processing**: Fetch and process multiple RSS feeds to extract article links
 - **Secure Content Scraping**: Extract clean article content from RSS feed links
 - **AI Analysis**: Use Claude Haiku to analyze content relevance based on custom criteria
 - **Multiple Export Formats**: Export sorted results as HTML, Excel, CSV, JSON, or Markdown
@@ -11,6 +12,7 @@ A secure, modern tool to scrape, analyze, and sort RSS feed content using Claude
 - **Type Safety**: Uses Zod for runtime validation and TypeScript for compile-time safety
 - **Batch Processing**: Handle large datasets efficiently
 - **Interactive Reports**: Filter and sort results with interactive HTML exports
+- **One-Command Execution**: Process everything from RSS feeds to HTML dashboard in a single command
 
 ## Installation
 
@@ -30,25 +32,87 @@ cp .env.example .env
 # Edit .env with your Claude API key
 ```
 
-## Usage
+## Quick Start
 
-### Basic Usage
+The easiest way to run the complete pipeline:
 
-```bash
-npm run analyze -- path/to/google-alerts-export.csv path/to/criteria.txt
+1. Create a `rss-feeds.csv` file with your RSS feed URLs:
+```csv
+Feed URL,Alert Name
+https://news.ycombinator.com/rss,Hacker News
+https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,NYT Technology
+https://feeds.bbci.co.uk/news/technology/rss.xml,BBC Tech News
 ```
 
-### Advanced Options
+2. Create a `promptCriteria.txt` file with your analysis criteria:
+```
+Analyze this article for information about artificial intelligence applications in business.
+Consider:
+1. Mentions of specific AI technologies (machine learning, deep learning, etc.)
+2. Applications in business processes, decision-making, or customer service
+3. Implementation details, challenges, and benefits
+4. Case studies or examples with measurable results
+
+The most relevant articles will contain specific examples with real-world outcomes.
+```
+
+3. Run the complete pipeline:
+```bash
+# Make the run script executable
+chmod +x run.sh
+
+# Run the complete pipeline
+./run.sh
+```
+
+This will:
+- Process RSS feeds to extract article links
+- Scrape article content
+- Analyze content relevance with Claude
+- Generate an HTML report
+- Start a local server to view results
+
+## Usage
+
+### Complete Pipeline (One Command)
 
 ```bash
-npm run analyze -- path/to/google-alerts-export.csv path/to/criteria.txt \
+npm run run-all -- --export-format html --min-score 30
+```
+
+### Individual Steps
+
+If you prefer to run each step separately:
+
+#### 1. Process RSS Feeds to CSV
+
+```bash
+npm run process-rss -- ./rss-feeds.csv ./input/processed.csv
+```
+
+#### 2. Analyze Content
+
+```bash
+npm run analyze -- ./input/processed.csv ./promptCriteria.txt \
   --export-format html \
   --min-score 50 \
-  --include-content true
+  --include-content true \
+  --start-server true
+```
+
+#### 3. View Results
+
+```bash
+npm run serve -- --port 3000
 ```
 
 ### Options
 
+#### RSS Processing
+- `--feedsFile`: Path to CSV file with RSS feed URLs (default: ./rss-feeds.csv)
+- `--outputPath`: Path for the processed CSV output
+
+#### Analysis
 - `--output-dir`: Directory for output files (default: ./output)
 - `--skip-scraping`: Skip scraping and use existing data
 - `--scraped-data`: Path to existing scraped data
@@ -56,42 +120,41 @@ npm run analyze -- path/to/google-alerts-export.csv path/to/criteria.txt \
 - `--min-score`: Minimum relevance score (0-100) for inclusion
 - `--include-content`: Include full article content in export
 
+#### Server
+- `--port`: Port for the web server (default: 3000)
+
 ## Input Format
 
-The tool expects a CSV file with, at minimum, the following columns:
-- `Alert Name`: The source or category name
-- `Title`: The article title
-- `Link`: The URL to the article
+### RSS Feeds CSV
 
-This matches the format from Google Alerts exports.
+The tool expects a CSV file with the following columns:
+- `Feed URL`: The URL to the RSS feed
+- `Alert Name`: A name/category for the feed
 
-## Output Formats
+Example:
+```csv
+Feed URL,Alert Name
+https://news.ycombinator.com/rss,Hacker News
+https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,NYT Technology
+```
 
-### HTML Report (Recommended)
+### Analysis Criteria
 
-The HTML export creates an interactive report with:
-- Summary statistics
-- Filtering and sorting controls
-- Pagination for large datasets
-- Collapsible content sections
-- Color-coded relevance scores
+Create a text file (e.g., `promptCriteria.txt`) with your analysis criteria. This will be used to instruct Claude on how to evaluate article relevance.
 
-This is the most user-friendly format for reviewing results.
+## Configuration
 
-### Excel Export
+Configuration can be set via environment variables in an `.env` file:
 
-Excel exports include:
-- Formatted data with filtering
-- Summary statistics sheet
-- Color-coded headers
-- Auto-width columns
+- **API Keys**: Set your `CLAUDE_API_KEY`
+- **Paths**: Configure input/output directories
+- **RSS Settings**: Concurrent requests, timeouts, retries
+- **Scraper Settings**: Concurrent requests, timeouts, retries
+- **Claude API Settings**: Model, token limits, cost management
+- **Export Settings**: Default format, minimum score
+- **Performance Settings**: Batching, memory usage
 
-### Other Formats
-
-Also supported:
-- CSV (for spreadsheet compatibility)
-- JSON (for programmatic processing)
-- Markdown (for documentation)
+See `.env.example` for all available configuration options.
 
 ## Writing Effective Analysis Criteria
 
@@ -119,22 +182,29 @@ The most relevant articles will contain specific examples of AI technologies bei
 4. Consider including what would make an article less relevant
 5. Use clear, objective language
 
-## Improving the Tool
+## Project Structure
 
-You can customize the tool by:
-
-1. **Customizing criteria**: Write more specific analysis prompts
-2. **Adjusting thresholds**: Change minimum relevance scores for inclusion
-3. **Modifying the Claude prompt**: Edit the `createAnalysisPrompt` function in `relevanceAnalyzer.ts`
-4. **Extending export formats**: Add new export formats in `exportFormatter.ts`
-5. **Refining content extraction**: Enhance the HTML parsing in `articleExtractor.ts`
-
-## Security and Costs
-
-- All dependencies are modern and secure
-- Rate limiting prevents excessive costs
-- Monthly budget limits protect against unexpected charges
-- No browser automation dependencies (uses lightweight HTML parsing)
+```
+rss-content-analyzer/
+├── src/
+│   ├── rss/                 # RSS feed processing
+│   │   └── feedProcessor.ts
+│   ├── scraper/             # Article content scraping
+│   ├── analysis/            # Claude analysis
+│   ├── utils/               # Utility functions
+│   │   ├── csvHandler.ts
+│   │   ├── criteriaUtils.ts
+│   │   └── exportFormatter.ts
+│   ├── config.ts            # Configuration
+│   ├── index.ts             # Main entry point
+│   └── server.ts            # Web server
+├── input/                   # Input directory
+├── output/                  # Output directory
+├── promptCriteria.txt       # Analysis criteria
+├── rss-feeds.csv            # RSS feed URLs
+├── .env                     # Environment variables
+└── run.sh                   # Easy start script
+```
 
 ## License
 

@@ -1,5 +1,10 @@
 import { config } from 'dotenv';
 import { z } from 'zod';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+// Get directory of current module
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '..');
 // Load environment variables
 config();
 // Define configuration schema with zod for validation
@@ -7,6 +12,14 @@ const ConfigSchema = z.object({
     // Input/Output
     inputDir: z.string().default('./input'),
     outputDir: z.string().default('./output'),
+    // RSS settings
+    rss: z.object({
+        feedsFilePath: z.string().default(path.join(projectRoot, 'rss-feeds.csv')),
+        maxConcurrent: z.coerce.number().int().positive().default(5),
+        requestTimeout: z.coerce.number().int().positive().default(30000),
+        requestDelay: z.coerce.number().int().positive().default(2000),
+        retries: z.coerce.number().int().nonnegative().default(3),
+    }),
     // Scraper settings
     scraper: z.object({
         maxConcurrent: z.coerce.number().int().positive().default(10),
@@ -48,6 +61,13 @@ const ConfigSchema = z.object({
 export const CONFIG = ConfigSchema.parse({
     inputDir: process.env.INPUT_DIR,
     outputDir: process.env.OUTPUT_DIR,
+    rss: {
+        feedsFilePath: process.env.RSS_FEEDS_FILE_PATH,
+        maxConcurrent: process.env.RSS_MAX_CONCURRENT,
+        requestTimeout: process.env.RSS_TIMEOUT,
+        requestDelay: process.env.RSS_DELAY,
+        retries: process.env.RSS_RETRIES,
+    },
     scraper: {
         maxConcurrent: process.env.SCRAPER_MAX_CONCURRENT,
         requestTimeout: process.env.SCRAPER_TIMEOUT,
