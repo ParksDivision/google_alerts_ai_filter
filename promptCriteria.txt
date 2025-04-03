@@ -1,9 +1,9 @@
-Analyze this article for information about artificial intelligence and machine learning developments.
+Analyze this article for information about government contracting opportunities and evalutate based on the following criteria.
 Consider:
-1. Mentions of specific AI technologies (neural networks, GPT models, transformer architectures, etc.)
-2. Applications in business, science, or consumer products
-3. Technical innovations or breakthroughs in AI research
-4. Ethical considerations or regulatory developments
-5. Industry impact and real-world implementations
+1. Government funding at or above 10 million dollars per project.
+2. There must not be a developer or contractor already attached to (or partnered) with the project.
+3. The funding opportunity must be geared toward businesses, not individuals.
+4. The opportunity listed must include available, upcoming or future funds. The funds must not already be spent.
+5. The original publication date of the article should be from within the past 7 days.
 
-The most relevant articles will contain specific technical details about recent AI advances, applications, or important developments in the field with clear descriptions of the technology.
+The most relevant articles will contain funding related to infrascture, capital improvement, technology, transporation, transit, education, construction, water, and energy projects.

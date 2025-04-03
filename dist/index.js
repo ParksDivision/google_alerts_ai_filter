@@ -157,7 +157,9 @@ export async function runEntirePipeline(options) {
         minRelevanceScore,
         includeFullContent,
         startServer: true,
-        port
+        port,
+        skipScraping: false, // Add this line to fix the error
+        scrapedDataPath: undefined // Add this optional parameter for completeness
     });
     console.log('\n== PIPELINE COMPLETE ==');
     console.log(`Final output: ${analysisResult}`);

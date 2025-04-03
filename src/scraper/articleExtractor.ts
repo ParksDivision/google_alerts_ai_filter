@@ -1,3 +1,4 @@
+// src/scraper/articleExtractor.ts
 import * as cheerio from 'cheerio';
 import sanitizeHtml from 'sanitize-html';
 import TurndownService from 'turndown';
@@ -71,7 +72,7 @@ export async function extractArticleContent(
     const $ = cheerio.load(html);
     
     // Remove script, style, and other non-content elements
-    $('script, style, meta, link, noscript, iframe, form, nav, footer, aside').remove();
+    $('script, style, meta, link, noscript, iframe, form, nav, footer, aside, [role="complementary"], .comment, .comments, .ad, .ads, .advertisement').remove();
     
     // Extract title (try different approaches)
     const title = $('meta[property="og:title"]').attr('content') || 
@@ -79,11 +80,71 @@ export async function extractArticleContent(
                   $('title').text() || 
                   $('h1').first().text() || '';
     
-    // Extract article content (prioritize article, main, then body)
-    const mainContent = $('article').html() || 
-                      $('main').html() || 
-                      $('.content, .post-content, .entry-content, .article-content').html() ||
-                      $('body').html() || '';
+    // Try multiple selectors with fallbacks for content extraction
+    // Common content containers in various CMS and news websites
+    const contentSelectors = [
+      'article', 
+      'main', 
+      '.article-content',
+      '.post-content',
+      '.entry-content',
+      '.content',
+      '.article-body',
+      '.story-content',
+      '.story-body',
+      '.news-content',
+      '#article-content',
+      '#content-main',
+      '[itemprop="articleBody"]',
+      'div[data-component="text-block"]'
+    ];
+    
+    let mainContent = '';
+    // Try each selector until we find content
+    for (const selector of contentSelectors) {
+      const selectedContent = $(selector).html();
+      if (selectedContent && selectedContent.length > 500) {  // Ensuring it's substantial content
+        mainContent = selectedContent;
+        break;
+      }
+    }
+    
+    // If no specific content container found, try to extract article-like content
+    if (!mainContent || mainContent.length < 500) {
+      // Look for sections with substantial paragraphs that likely contain article text
+      let bestElement: cheerio.Element | null = null;
+      let mostParagraphs = 0;
+      
+      $('div, section').each((_, element) => {
+        const paragraphs = $(element).find('p');
+        if (paragraphs.length >= 3 && paragraphs.length > mostParagraphs) {
+          mostParagraphs = paragraphs.length;
+          bestElement = element;
+        }
+      });
+      
+      if (bestElement) {
+        mainContent = $(bestElement).html() || '';
+      } else {
+        // Last resort: try to collect all paragraphs from the body
+        const paragraphs = $('body p').filter((_, el) => {
+          const text = $(el).text().trim();
+          return text.length > 80;  // Only substantial paragraphs
+        }).toArray();
+        
+        const contentBuilder = [];
+        for (const p of paragraphs) {
+          contentBuilder.push($.html(p));
+        }
+        
+        mainContent = contentBuilder.join('\n');
+      }
+    }
+    
+    // Fallback to body content if all else fails
+    if (!mainContent || mainContent.length < 300) {
+      mainContent = $('body').html() || '';
+    }
     
     // Clean the HTML content
     const cleanHtml = sanitizeHtml(mainContent, {
@@ -99,6 +160,11 @@ export async function extractArticleContent(
       allowedTags: [],
       allowedAttributes: {},
     }).trim();
+    
+    // Log warning if text content is suspiciously small
+    if (textContent.length < 300 && textContent.length > 0) {
+      console.warn(`Warning: Extracted text from ${url} is suspiciously short (${textContent.length} chars)`);
+    }
     
     // Generate markdown version
     const turndownService = new TurndownService({

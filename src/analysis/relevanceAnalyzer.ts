@@ -20,8 +20,8 @@ Please evaluate the article and provide:
 2. A brief explanation (2-3 sentences) of why you assigned this score.
 
 Format your response exactly like this:
-RELEVANCE_SCORE: [score]
-EXPLANATION: [your brief explanation]
+RELEVANCE_SCORE:[score]
+EXPLANATION:[your brief explanation]
 
 Remember to only focus on the criteria provided. Be objective and consistent in your evaluation.
   `.trim();
@@ -35,6 +35,7 @@ export function parseAnalysisResult(result: string | null): { score: number, exp
     return { score: 0, explanation: 'Failed to analyze with Claude' };
   }
   
+  console.log("RELEVANCE SCORE: ", result.match(/RELEVANCE_SCORE:\s*(\d+)/i));
   // Extract score
   const scoreMatch = result.match(/RELEVANCE_SCORE:\s*(\d+)/i);
   const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;

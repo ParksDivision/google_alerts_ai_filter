@@ -10,8 +10,12 @@ export async function analyzeContent(
   criteria: string
 ): Promise<AnalyzedArticle[]> {
   // Filter out articles with no content or errors
-  const validArticles = articles.filter(
-    article => article.content && !article.error
+  const validArticles = articles.filter(  
+    article => {
+      if (article.content && !article.error) return true;
+      else console.log('article content: ', article.content)
+      return false;
+    }
   );
   
   console.log(`Analyzing ${validArticles.length} valid articles out of ${articles.length} total`);

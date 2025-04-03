@@ -48,15 +48,15 @@ export async function loadAnalysisCriteria(customPath?: string): Promise<string>
     
     // Return a fallback criteria
     return `
-Evaluate this article for general relevance and quality.
+Analyze this article for information about government contracting opportunities and evalutate based on the following criteria.
 Consider:
-1. Information accuracy and factual content
-2. Depth of analysis and insight
-3. Writing quality and clarity
-4. Credibility of sources
-5. Timeliness and newsworthiness
+1. Government funding at or above 10 million dollars per project.
+2. There must not be a developer or contractor already attached to (or partnered) with the project.
+3. The funding opportunity must be geared toward businesses, not individuals.
+4. The opportunity listed must include available, upcoming or future funds. The funds must not already be spent.
+5. The original publication date of the article should be from within the past 7 days.
 
-The most relevant articles will contain specific, accurate, and insightful information from credible sources.
+The most relevant articles will contain funding related to infrascture, capital improvement, technology, transporation, transit, education, construction, water, and energy projects.
     `.trim();
   }
 }
