@@ -1,4 +1,4 @@
-// src/index.ts
+/// src/index.ts
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -6,13 +6,17 @@ import { z } from 'zod';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { scrapeArticles } from './scraper/index.js';
-import { analyzeContent, getCostInformation } from './analysis/index.js';
+import { analyzeContent } from './analysis/index.js';
+import { getCostInformation } from './analysis/index.js';
 import { readArticleLinks, readScrapedArticles, writeScrapedArticles } from './utils/csvHandler.js';
 import { exportAnalyzedArticles } from './utils/exportFormatter.js';
 import CONFIG from './config.js';
 import { createServer } from './server.js';
 import { processAndExportRssFeeds } from './rss/feedProcessor.js';
 import { loadAnalysisCriteria } from './utils/criteriaUtils.js';
+// Note: You'll need to create this file first before importing from it
+// Make sure the path matches where you create the file
+import { deduplicateArticleInputs, deduplicateScrapedArticles, deduplicateAnalyzedArticles } from './utils/deduplicationUtils.js';
 export const OptionsSchema = z.object({
     inputCsvPath: z.string(),
     criteria: z.string(),
@@ -46,6 +50,9 @@ export async function runAnalysis(options) {
     console.log(`Reading article links from ${inputCsvPath}`);
     const articleLinks = await readArticleLinks(inputCsvPath);
     console.log(`Found ${articleLinks.length} article links`);
+    // Step 1b: Deduplicate article links by URL
+    const uniqueArticleLinks = deduplicateArticleInputs(articleLinks);
+    console.log(`After deduplication: ${uniqueArticleLinks.length} unique article links (removed ${articleLinks.length - uniqueArticleLinks.length} duplicates)`);
     // Step 2: Scrape articles (or use existing data)
     let shouldScrape = !initialSkipScraping;
     let scrapedArticles = [];
@@ -54,6 +61,10 @@ export async function runAnalysis(options) {
             await fs.access(scrapedDataPath);
             console.log(`Using existing scraped data from ${scrapedDataPath}`);
             scrapedArticles = await readScrapedArticles(scrapedDataPath);
+            // Step 2b: Deduplicate loaded scraped articles
+            const uniqueScrapedArticles = deduplicateScrapedArticles(scrapedArticles);
+            console.log(`After deduplication: ${uniqueScrapedArticles.length} unique scraped articles (removed ${scrapedArticles.length - uniqueScrapedArticles.length} duplicates)`);
+            scrapedArticles = uniqueScrapedArticles;
         }
         catch (error) {
             console.warn(`Could not access ${scrapedDataPath}, proceeding with scraping`);
@@ -63,17 +74,17 @@ export async function runAnalysis(options) {
     if (shouldScrape) {
         console.log('Starting article scraping...');
         // Use batching for large datasets if enabled
-        if (CONFIG.performance.enableBatching && articleLinks.length > CONFIG.performance.batchSize) {
-            console.log(`Using batch processing for ${articleLinks.length} articles`);
+        if (CONFIG.performance.enableBatching && uniqueArticleLinks.length > CONFIG.performance.batchSize) {
+            console.log(`Using batch processing for ${uniqueArticleLinks.length} articles`);
             // Process in batches
             const batchSize = CONFIG.performance.batchSize;
-            const batches = Math.ceil(articleLinks.length / batchSize);
+            const batches = Math.ceil(uniqueArticleLinks.length / batchSize);
             scrapedArticles = [];
             for (let i = 0; i < batches; i++) {
                 const start = i * batchSize;
-                const end = Math.min(start + batchSize, articleLinks.length);
+                const end = Math.min(start + batchSize, uniqueArticleLinks.length);
                 console.log(`Processing batch ${i + 1}/${batches} (articles ${start + 1}-${end})`);
-                const batchLinks = articleLinks.slice(start, end);
+                const batchLinks = uniqueArticleLinks.slice(start, end);
                 const batchResults = await scrapeArticles(batchLinks);
                 scrapedArticles.push(...batchResults);
                 // Optionally save intermediate results
@@ -85,14 +96,22 @@ export async function runAnalysis(options) {
         }
         else {
             // Process all at once
-            scrapedArticles = await scrapeArticles(articleLinks);
+            scrapedArticles = await scrapeArticles(uniqueArticleLinks);
         }
+        // Step 2c: Deduplicate scraped articles
+        const uniqueScrapedArticles = deduplicateScrapedArticles(scrapedArticles);
+        console.log(`After scraping and deduplication: ${uniqueScrapedArticles.length} unique scraped articles (removed ${scrapedArticles.length - uniqueScrapedArticles.length} duplicates)`);
+        scrapedArticles = uniqueScrapedArticles;
         await writeScrapedArticles(scrapedArticles, scrapedOutputPath);
         console.log(`Scraped articles saved to ${scrapedOutputPath}`);
     }
     // Step 3: Analyze articles with Claude
     console.log('Starting content analysis with Claude...');
-    const analyzedArticles = await analyzeContent(scrapedArticles, criteria);
+    let analyzedArticles = await analyzeContent(scrapedArticles, criteria);
+    // Step 3b: Deduplicate analyzed articles (in case any slipped through)
+    const uniqueAnalyzedArticles = deduplicateAnalyzedArticles(analyzedArticles);
+    console.log(`After final deduplication: ${uniqueAnalyzedArticles.length} unique analyzed articles (removed ${analyzedArticles.length - uniqueAnalyzedArticles.length} duplicates)`);
+    analyzedArticles = uniqueAnalyzedArticles;
     // Step 4: Export analyzed articles
     const exportOptions = {
         format: exportFormat,

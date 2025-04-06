@@ -80,8 +80,8 @@ export const CONFIG = ConfigSchema.parse({
         model: process.env.CLAUDE_MODEL,
         maxTokensPerRequest: process.env.CLAUDE_MAX_TOKENS,
         monthlyCostLimit: process.env.MONTHLY_COST_LIMIT,
-        haiku_input_cost_per_1k: 0.25,
-        haiku_output_cost_per_1k: 1.25,
+        haiku_input_cost_per_1k: 0.00025, // Corrected from 0.25
+        haiku_output_cost_per_1k: 0.00125, // Corrected from 1.25
         requestsPerMinute: process.env.CLAUDE_REQUESTS_PER_MINUTE,
         maxConcurrent: process.env.CLAUDE_MAX_CONCURRENT,
     },

@@ -1,135 +1,161 @@
-// src/analysis/relevanceAnalyzer.ts
 import { analyzeText } from './claudeClient.js';
+import CONFIG from '../config.js';
 /**
- * Creates a prompt for analyzing an article's relevance based on criteria
+ * Creates a prompt for analyzing multiple articles' relevance based on criteria
  */
-export function createAnalysisPrompt(criteria) {
+export function createBatchAnalysisPrompt(criteria, articlesCount) {
     return `
-You are an expert content analyzer. Your task is to analyze the article and determine its relevance based on the following criteria:
+You are an expert content analyzer. Your task is to analyze ${articlesCount} articles and determine their relevance based on the following criteria:
 
 ${criteria}
 
-Please evaluate the article and provide:
+I will provide each article with a unique ID. For each article, you must provide:
 1. A relevance score between 0 and 100, where 100 is extremely relevant and 0 is not relevant at all.
 2. A brief explanation (2-3 sentences) of why you assigned this score.
 
-If the article content is empty, very short, or seems incomplete, please analyze based on just the title and any available content.
+Evaluate EACH article independently based on the criteria.
 
-Format your response EXACTLY like this:
+Format your response EXACTLY like this for EACH article:
+ARTICLE_ID: [id]
 RELEVANCE_SCORE: [score]
 EXPLANATION: [your brief explanation]
 
-It's critical that you follow this exact format with these exact labels.
+Make sure to include ALL article IDs in your response, maintaining the exact format shown above for each article.
+
+It's critical that you follow this exact format with these exact labels and correct article IDs.
 Remember to only focus on the criteria provided. Be objective and consistent in your evaluation.
-  `.trim();
+`.trim();
 }
 /**
- * Parses the analysis result from Claude
+ * Parses the batch analysis result from Claude
  */
-export function parseAnalysisResult(result) {
+export function parseBatchAnalysisResult(result) {
+    const articleResults = new Map();
     if (!result) {
-        return { score: 0, explanation: 'Failed to analyze with Claude' };
+        console.error("Failed to get a response from Claude");
+        return articleResults;
     }
-    // Log the first part of the response for debugging
-    console.log("Claude response begins with:", result.substring(0, 200).replace(/\n/g, ' '));
-    // Extract score with more flexible pattern matching
-    const scoreMatch = result.match(/RELEVANCE_SCORE:?\s*(\d+)/i);
-    const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-    if (!scoreMatch) {
-        console.warn("Failed to extract score from Claude's response!");
+    // Split the result into sections for each article
+    const articleSections = result.split(/ARTICLE_ID:\s*(\d+)/);
+    // Start from index 1 since splitting with capture groups will put the first match at index 1
+    for (let i = 1; i < articleSections.length; i += 2) {
+        if (i + 1 >= articleSections.length)
+            break;
+        const articleId = articleSections[i].trim();
+        const articleContent = articleSections[i + 1].trim();
+        // Extract score with pattern matching
+        const scoreMatch = articleContent.match(/RELEVANCE_SCORE:\s*(\d+)/);
+        const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
+        // Extract explanation with pattern matching
+        const explanationMatch = articleContent.match(/EXPLANATION:\s*([\s\S]+?)(?=ARTICLE_ID:|$)/);
+        const explanation = explanationMatch
+            ? explanationMatch[1].trim()
+            : 'No explanation provided';
+        articleResults.set(articleId, {
+            score: Math.min(Math.max(score, 0), 100), // Ensure score is between 0-100
+            explanation
+        });
+        // Log processing for debugging
+        if (!scoreMatch) {
+            console.warn(`Failed to extract score for article ID ${articleId}`);
+        }
     }
-    // Extract explanation with more flexible pattern matching
-    const explanationMatch = result.match(/EXPLANATION:?\s*([\s\S]+)/i);
-    const explanation = explanationMatch
-        ? explanationMatch[1].trim()
-        : 'No explanation provided';
-    return {
-        score: Math.min(Math.max(score, 0), 100), // Ensure score is between 0-100
-        explanation
-    };
+    return articleResults;
 }
 /**
- * Analyzes a single article for relevance
+ * Process articles in batches to reduce Claude API calls
  */
-export async function analyzeArticle(article, criteria) {
-    console.log(`Analyzing article: ${article.title}`);
-    // Default to empty string if content is null/undefined
-    const articleContent = article.content || '';
-    // Always analyze, even with minimal content
-    if (articleContent.trim().length < 100) {
-        console.log(`Note: Article has minimal content (${articleContent.length} chars): ${article.title}`);
-    }
-    // Create a text excerpt if the content is too long
-    // This helps control costs and ensures we don't exceed token limits
-    const maxContentLength = 10000; // Limit to control token usage
-    const content = articleContent.length > maxContentLength
-        ? articleContent.substring(0, maxContentLength) + '...[truncated]'
-        : articleContent;
-    // Include title and URL to give more context, especially for short content
-    const enrichedContent = `
-TITLE: ${article.title || 'No title available'}
-URL: ${article.link || 'No URL available'}
-SOURCE: ${article.alertName || 'Unknown source'}
-CONTENT:
-${content || 'No content available'}
-  `;
-    // Generate the prompt
-    const prompt = createAnalysisPrompt(criteria);
-    try {
-        // Send to Claude for analysis
-        const result = await analyzeText(enrichedContent, prompt, 400);
-        // Parse the result
-        const { score, explanation } = parseAnalysisResult(result);
-        return {
-            ...article,
-            relevanceScore: score,
-            relevanceExplanation: explanation
-        };
-    }
-    catch (error) {
-        console.error(`Error during Claude analysis for "${article.title}":`, error);
-        // Return a default value instead of throwing
-        return {
-            ...article,
-            relevanceScore: 0,
-            relevanceExplanation: `Error during analysis: ${error}`
-        };
-    }
-}
-/**
- * Analyzes multiple articles and sorts by relevance
- */
-export async function analyzeArticles(articles, criteria) {
-    console.log(`Starting analysis of ${articles.length} articles...`);
+export async function analyzeArticlesBatch(articles, criteria, batchSize = 5 // Default to 5 articles per batch
+) {
+    console.log(`Starting batch analysis of ${articles.length} articles...`);
     const results = [];
+    const batches = [];
+    // Split articles into batches
+    for (let i = 0; i < articles.length; i += batchSize) {
+        batches.push(articles.slice(i, i + batchSize));
+    }
+    console.log(`Created ${batches.length} batches with max ${batchSize} articles per batch`);
     let successCount = 0;
     let errorCount = 0;
-    for (let i = 0; i < articles.length; i++) {
-        const article = articles[i];
-        console.log(`Analyzing article ${i + 1}/${articles.length}: ${article.title}`);
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} articles`);
+        // Build the batch content
+        let batchContent = '';
+        batch.forEach((article, index) => {
+            // Use the index within the batch as a unique ID
+            const articleId = `${index + 1}`;
+            const articleContent = article.content || '';
+            // Create a text excerpt if the content is too long
+            const maxContentLength = Math.floor(5000 / batch.length); // Adjust content length based on batch size
+            const truncatedContent = articleContent.length > maxContentLength
+                ? articleContent.substring(0, maxContentLength) + '...[truncated]'
+                : articleContent;
+            // Add article to batch with ID, title, source, and content
+            batchContent += `\n\nARTICLE_ID: ${articleId}\n`;
+            batchContent += `TITLE: ${article.title || 'No title available'}\n`;
+            batchContent += `URL: ${article.link || 'No URL available'}\n`;
+            batchContent += `SOURCE: ${article.alertName || 'Unknown source'}\n`;
+            batchContent += `CONTENT:\n${truncatedContent || 'No content available'}\n`;
+        });
+        // Generate the prompt
+        const prompt = createBatchAnalysisPrompt(criteria, batch.length);
         try {
-            const result = await analyzeArticle(article, criteria);
-            results.push(result);
-            successCount++;
-            if (i % 5 === 0 && i > 0) {
-                console.log(`Progress: ${i}/${articles.length} articles analyzed (${successCount} successful, ${errorCount} errors)`);
-            }
-        }
-        catch (error) {
-            console.error(`Error analyzing article ${article.title}:`, error);
-            errorCount++;
-            // Add the article with zero score rather than skipping it
-            results.push({
-                ...article,
-                relevanceScore: 0,
-                relevanceExplanation: `Error during analysis: ${error}`
+            // Send to Claude for analysis
+            // Increase max tokens for batch processing
+            const maxResponseTokens = 1000 * batch.length;
+            const result = await analyzeText(batchContent, prompt, maxResponseTokens);
+            // Parse the batch result
+            const articleResults = parseBatchAnalysisResult(result);
+            // Map results back to original articles
+            batch.forEach((article, index) => {
+                const articleId = `${index + 1}`;
+                const resultData = articleResults.get(articleId);
+                if (resultData) {
+                    results.push({
+                        ...article,
+                        relevanceScore: resultData.score,
+                        relevanceExplanation: resultData.explanation
+                    });
+                    successCount++;
+                }
+                else {
+                    console.error(`Missing result for article ID ${articleId} in batch ${batchIndex + 1}`);
+                    results.push({
+                        ...article,
+                        relevanceScore: 0,
+                        relevanceExplanation: `Error: Failed to get analysis result for this article in batch.`
+                    });
+                    errorCount++;
+                }
             });
         }
+        catch (error) {
+            console.error(`Error during batch analysis (batch ${batchIndex + 1}):`, error);
+            // Add all articles in the failed batch with zero scores
+            batch.forEach(article => {
+                results.push({
+                    ...article,
+                    relevanceScore: 0,
+                    relevanceExplanation: `Error during batch analysis: ${error}`
+                });
+            });
+            errorCount += batch.length;
+        }
+        console.log(`Batch ${batchIndex + 1} complete. Current stats: ${successCount} successful, ${errorCount} errors`);
     }
     // Sort by relevance score (descending)
     const sortedResults = [...results].sort((a, b) => b.relevanceScore - a.relevanceScore);
     console.log(`Analysis complete: ${successCount} successful, ${errorCount} errors`);
     console.log(`Articles with scores > 0: ${sortedResults.filter(a => a.relevanceScore > 0).length}`);
     return sortedResults;
+}
+// Update the original analyzeArticles function to use the new batch method
+export async function analyzeArticles(articles, criteria) {
+    // Get batch size from config or use default
+    const batchSize = CONFIG.performance.batchSize || 5;
+    // Use batch processing for efficiency
+    return analyzeArticlesBatch(articles, criteria, batchSize);
 }
 //# sourceMappingURL=relevanceAnalyzer.js.map

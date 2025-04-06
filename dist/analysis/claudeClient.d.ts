@@ -15,6 +15,7 @@ export declare function loadCostTracking(): Promise<void>;
 export declare function saveCostTracking(): Promise<void>;
 /**
  * Calculate cost based on token usage
+ * Current Claude Haiku pricing: $0.00025/1K input tokens, $0.00125/1K output tokens
  */
 export declare function calculateCost(inputTokens: number, outputTokens: number): number;
 /**

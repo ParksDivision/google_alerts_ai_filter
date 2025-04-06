@@ -64,10 +64,11 @@ export async function saveCostTracking() {
 }
 /**
  * Calculate cost based on token usage
+ * Current Claude Haiku pricing: $0.00025/1K input tokens, $0.00125/1K output tokens
  */
 export function calculateCost(inputTokens, outputTokens) {
-    const inputCost = (inputTokens / 1000) * CONFIG.claude.haiku_input_cost_per_1k;
-    const outputCost = (outputTokens / 1000) * CONFIG.claude.haiku_output_cost_per_1k;
+    const inputCost = (inputTokens / 1000) * 0.00025; // $0.00025 per 1K input tokens
+    const outputCost = (outputTokens / 1000) * 0.00125; // $0.00125 per 1K output tokens
     return inputCost + outputCost;
 }
 /**

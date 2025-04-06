@@ -4,21 +4,18 @@ export interface AnalyzedArticle extends ArticleOutput {
     relevanceExplanation: string;
 }
 /**
- * Creates a prompt for analyzing an article's relevance based on criteria
+ * Creates a prompt for analyzing multiple articles' relevance based on criteria
  */
-export declare function createAnalysisPrompt(criteria: string): string;
+export declare function createBatchAnalysisPrompt(criteria: string, articlesCount: number): string;
 /**
- * Parses the analysis result from Claude
+ * Parses the batch analysis result from Claude
  */
-export declare function parseAnalysisResult(result: string | null): {
+export declare function parseBatchAnalysisResult(result: string | null): Map<string, {
     score: number;
     explanation: string;
-};
+}>;
 /**
- * Analyzes a single article for relevance
+ * Process articles in batches to reduce Claude API calls
  */
-export declare function analyzeArticle(article: ArticleOutput, criteria: string): Promise<AnalyzedArticle>;
-/**
- * Analyzes multiple articles and sorts by relevance
- */
+export declare function analyzeArticlesBatch(articles: ArticleOutput[], criteria: string, batchSize?: number): Promise<AnalyzedArticle[]>;
 export declare function analyzeArticles(articles: ArticleOutput[], criteria: string): Promise<AnalyzedArticle[]>;
