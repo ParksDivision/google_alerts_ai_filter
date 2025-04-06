@@ -8,9 +8,9 @@ export interface AnalyzedArticle extends ArticleOutput {
  */
 export declare function createBatchAnalysisPrompt(criteria: string, articlesCount: number): string;
 /**
- * Parses the batch analysis result from Claude
+ * Parses the batch analysis result from Claude with enhanced error handling
  */
-export declare function parseBatchAnalysisResult(result: string | null): Map<string, {
+export declare function parseBatchAnalysisResult(result: string | null, expectedArticleIds: string[]): Map<string, {
     score: number;
     explanation: string;
 }>;

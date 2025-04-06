@@ -48,15 +48,46 @@ export async function loadAnalysisCriteria(customPath?: string): Promise<string>
     
     // Return a fallback criteria
     return `
-Analyze this article for information about government contracting opportunities and evalutate based on the following criteria.
-Consider:
-1. Government funding at or above 10 million dollars per project.
-2. There must not be a developer or contractor already attached to (or partnered) with the project.
-3. The funding opportunity must be geared toward businesses, not individuals.
-4. The opportunity listed must include available, upcoming or future funds. The funds must not already be spent.
-5. The original publication date of the article should be from within the past 7 days.
+Analyze this article for information about government contracting opportunities for businesses based on the following criteria:
 
-The most relevant articles will contain funding related to infrascture, capital improvement, technology, transporation, transit, education, construction, water, and energy projects.
+Highly Relevant (75-100 score):
+1. Article mentions government funds, bonds, budget allocations, or spending initiatives totaling $10+ million
+2. No specific contractors/companies are mentioned as already selected
+3. Funding is for business-oriented projects (not individual benefits like tax credits)
+4. Any of these funding scenarios applies:
+   - Funds are upcoming, proposed, approved but not yet awarded
+   - Federal/state funding has been approved for a state/county/municipality, but not yet allocated to specific projects
+   - Projects are in early planning stages
+5. Article discusses infrastructure, capital improvement, technology, transportation, transit, education, construction, water, or energy projects
+6. Publication date is within the past 7 days
+
+Moderately Relevant (50-74 score):
+- Article meets most criteria but lacks specific funding amounts
+- Projects are in early discussion/approval phases 
+- Funding involves bond measures currently being voted on
+- Article mentions redirection of previously allocated funds to new purposes
+- Government is seeking input on project requirements
+
+Less Relevant (25-49 score):
+- Funding is allocated but project timeline is unclear
+- Article mentions government intent to fund projects but lacks specifics
+- Only partial criteria are met (e.g., funding amount is clear but project type isn't specified)
+- Article suggests potential future funding but decisions haven't been made
+
+Not Relevant (0-24 score):
+- Article clearly states contractors/developers are already selected
+- Bidding process is closed
+- Funds have already been fully spent or distributed
+- Projects mentioned are exclusively for individual benefits rather than business opportunities
+- Article is primarily about completed projects with no mention of future phases
+- RFP submission deadlines have passed
+
+Pay special attention to:
+- Bond measures that create future contracting opportunities
+- Budget approvals at ANY government level that will eventually flow to projects
+- Transfers of funds between government entities that may create new opportunities
+- Statements about future intent to allocate/spend on certain sectors
+- Wording that suggests early stages of project development
     `.trim();
   }
 }

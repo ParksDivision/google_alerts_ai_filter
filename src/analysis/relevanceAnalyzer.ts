@@ -35,17 +35,21 @@ Remember to only focus on the criteria provided. Be objective and consistent in 
 }
 
 /**
- * Parses the batch analysis result from Claude
+ * Parses the batch analysis result from Claude with enhanced error handling
  */
-export function parseBatchAnalysisResult(result: string | null): Map<string, { score: number, explanation: string }> {
+export function parseBatchAnalysisResult(result: string | null, expectedArticleIds: string[]): Map<string, { score: number, explanation: string }> {
   const articleResults = new Map<string, { score: number, explanation: string }>();
   
   if (!result) {
     console.error("Failed to get a response from Claude");
     return articleResults;
   }
+
+  console.log("Parsing Claude response...");
   
-  // Split the result into sections for each article
+  // Try multiple parsing approaches to handle different response formats
+  
+  // First approach: Try the regex split method
   const articleSections = result.split(/ARTICLE_ID:\s*(\d+)/);
   
   // Start from index 1 since splitting with capture groups will put the first match at index 1
@@ -75,7 +79,50 @@ export function parseBatchAnalysisResult(result: string | null): Map<string, { s
       console.warn(`Failed to extract score for article ID ${articleId}`);
     }
   }
+
+  // If we didn't get any results with the first approach, try a simpler approach
+  if (articleResults.size === 0) {
+    console.log("First parsing approach failed, trying alternative...");
+    
+    // Backup approach: Try to find each article ID directly
+    for (const articleId of expectedArticleIds) {
+      const idPattern = new RegExp(`ARTICLE_ID:\\s*${articleId}[\\s\\S]*?(?=ARTICLE_ID:|$)`, 'i');
+      const match = result.match(idPattern);
+      
+      if (match && match[0]) {
+        const section = match[0];
+        
+        // Extract score
+        const scoreMatch = section.match(/RELEVANCE_SCORE:\s*(\d+)/);
+        const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
+        
+        // Extract explanation
+        const explanationMatch = section.match(/EXPLANATION:\s*([\s\S]+?)(?=ARTICLE_ID:|$)/);
+        const explanation = explanationMatch 
+          ? explanationMatch[1].trim() 
+          : 'No explanation provided';
+        
+        articleResults.set(articleId, { 
+          score: Math.min(Math.max(score, 0), 100),
+          explanation 
+        });
+      }
+    }
+  }
   
+  // Check if we're missing any expected article IDs
+  for (const id of expectedArticleIds) {
+    if (!articleResults.has(id)) {
+      console.warn(`Result for article ID ${id} not found in Claude's response`);
+      // Add a default entry with a score of 0
+      articleResults.set(id, {
+        score: 0,
+        explanation: "Could not extract result from Claude's response"
+      });
+    }
+  }
+  
+  console.log(`Successfully parsed ${articleResults.size} article results`);
   return articleResults;
 }
 
@@ -85,16 +132,16 @@ export function parseBatchAnalysisResult(result: string | null): Map<string, { s
 export async function analyzeArticlesBatch(
   articles: ArticleOutput[], 
   criteria: string,
-  batchSize: number = CONFIG.performance.batchSize // Use the batch size from CONFIG
+  batchSize: number = CONFIG.performance.batchSize
 ): Promise<AnalyzedArticle[]> {
   console.log(`Starting batch analysis of ${articles.length} articles...`);
   
-  // Use the batch size from CONFIG but cap it at 2 articles for reliability
-  const maxSafeBatchSize = 2; // Only 2 articles per batch for better reliability
+  // Limit batch size to 1 article to reduce errors
+  const maxSafeBatchSize = 1; // Process one article at a time for maximum reliability
   const actualBatchSize = Math.min(batchSize, maxSafeBatchSize);
   
   if (batchSize > maxSafeBatchSize) {
-    console.warn(`Reducing batch size from ${batchSize} to ${maxSafeBatchSize} to avoid token limit errors`);
+    console.warn(`Reducing batch size from ${batchSize} to ${maxSafeBatchSize} for increased reliability`);
   }
   
   const results: AnalyzedArticle[] = [];
@@ -118,9 +165,14 @@ export async function analyzeArticlesBatch(
     // Build the batch content
     let batchContent = '';
     
+    // Keep track of expected article IDs
+    const expectedArticleIds: string[] = [];
+    
     batch.forEach((article, index) => {
       // Use the index within the batch as a unique ID
       const articleId = `${index + 1}`;
+      expectedArticleIds.push(articleId);
+      
       const articleContent = article.content || '';
       
       // Create a text excerpt if the content is too long
@@ -144,18 +196,18 @@ export async function analyzeArticlesBatch(
     try {
       // Send to Claude for analysis
       // Conservative token limit because we're keeping more content
-      const maxResponseTokens = Math.min(CONFIG.claude.maxTokensPerRequest, 2000); // Use CONFIG with a cap of 2000
+      const maxResponseTokens = Math.min(CONFIG.claude.maxTokensPerRequest, 2000);
       const result = await analyzeText(batchContent, prompt, maxResponseTokens);
       
-      // Parse the batch result
-      const articleResults = parseBatchAnalysisResult(result);
+      // Parse the batch result with expected article IDs
+      const articleResults = parseBatchAnalysisResult(result, expectedArticleIds);
       
       // Map results back to original articles
       batch.forEach((article, index) => {
         const articleId = `${index + 1}`;
         const resultData = articleResults.get(articleId);
         
-        if (resultData) {
+        if (resultData && resultData.score > 0) {
           results.push({
             ...article,
             relevanceScore: resultData.score,
@@ -163,11 +215,13 @@ export async function analyzeArticlesBatch(
           });
           successCount++;
         } else {
-          console.error(`Missing result for article ID ${articleId} in batch ${batchIndex + 1}`);
+          console.error(`Missing or zero-scored result for article ID ${articleId} in batch ${batchIndex + 1}`);
           results.push({
             ...article,
             relevanceScore: 0,
-            relevanceExplanation: `Error: Failed to get analysis result for this article in batch.`
+            relevanceExplanation: resultData ? 
+              resultData.explanation : 
+              `Error: Failed to get analysis result for this article in batch.`
           });
           errorCount++;
         }
@@ -204,10 +258,9 @@ export async function analyzeArticles(
   articles: ArticleOutput[], 
   criteria: string
 ): Promise<AnalyzedArticle[]> {
-  // Use batch size from CONFIG
-  const configBatchSize = CONFIG.performance.batchSize || 2;
-  const safeBatchSize = Math.min(configBatchSize, 2); // Limit to 2 articles per batch
+  // Use a fixed batch size of 1 to handle one article at a time
+  const safeBatchSize = 1;
   
-  // Use batch processing for efficiency
+  // Use batch processing with safer settings
   return analyzeArticlesBatch(articles, criteria, safeBatchSize);
 }
