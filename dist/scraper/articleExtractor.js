@@ -145,6 +145,7 @@ export async function extractArticleContent(url, options = {}) {
             $('meta[name="twitter:description"]').attr('content') ||
             $('.excerpt, .description, .summary').first().text().trim() ||
             textContent.substring(0, 200) + '...';
+        console.log(cleanHtml);
         // Return the extracted content
         return {
             title,

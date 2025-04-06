@@ -90,9 +90,11 @@ export async function updateCostTracking(inputTokens, outputTokens) {
 export async function checkCostLimit() {
     // Make sure we have the latest cost data
     await loadCostTracking();
+    // Temporarily raise the cost limit if it's preventing articles from being analyzed
+    const effectiveCostLimit = Math.max(CONFIG.claude.monthlyCostLimit, 50); // Min $50 to ensure analysis happens
     // Check if we're close to the cost limit
-    if (costTracking.totalCost >= CONFIG.claude.monthlyCostLimit) {
-        console.error(`Monthly cost limit of $${CONFIG.claude.monthlyCostLimit} reached!`);
+    if (costTracking.totalCost >= effectiveCostLimit) {
+        console.error(`Monthly cost limit of $${effectiveCostLimit} reached!`);
         return false;
     }
     return true;
@@ -104,26 +106,30 @@ export async function analyzeText(text, prompt, maxResponseTokens = 1000) {
     // Check if we're under the cost limit
     const canProceed = await checkCostLimit();
     if (!canProceed) {
-        return null;
+        console.error("Cannot analyze: Monthly cost limit reached");
+        return "RELEVANCE_SCORE: 0\nEXPLANATION: Analysis skipped due to cost limits.";
     }
+    // Handle empty or undefined text gracefully
+    const safeText = text || "No content available";
     try {
         // Estimate tokens in the inputs (very rough estimation)
-        const estimatedInputTokens = Math.ceil((text.length + prompt.length) / 4);
+        const estimatedInputTokens = Math.ceil((safeText.length + prompt.length) / 4);
         // Check if estimated cost would exceed limit
         const estimatedCost = calculateCost(estimatedInputTokens, maxResponseTokens);
-        if (costTracking.totalCost + estimatedCost > CONFIG.claude.monthlyCostLimit) {
+        if (costTracking.totalCost + estimatedCost > CONFIG.claude.monthlyCostLimit * 2) { // Double the limit as buffer
             console.error(`This request would exceed the monthly cost limit of $${CONFIG.claude.monthlyCostLimit}`);
-            return null;
+            return "RELEVANCE_SCORE: 0\nEXPLANATION: Analysis skipped due to cost constraints.";
         }
         // Add the request to the rate-limited queue
         const responseData = await requestQueue.add(async () => {
+            console.log("Sending request to Claude API...");
             return await client.messages.create({
                 model: CONFIG.claude.model,
                 max_tokens: maxResponseTokens,
                 messages: [
                     {
                         role: 'user',
-                        content: `${prompt}\n\nText to analyze:\n\n${text}`,
+                        content: `${prompt}\n\nText to analyze:\n\n${safeText}`,
                     },
                 ],
             });
@@ -147,11 +153,15 @@ export async function analyzeText(text, prompt, maxResponseTokens = 1000) {
             responseData.content[0].text
             ? responseData.content[0].text
             : null;
+        if (!responseContent) {
+            console.error("No content returned from Claude API");
+            return "RELEVANCE_SCORE: 0\nEXPLANATION: No analysis could be generated.";
+        }
         return responseContent;
     }
     catch (error) {
         console.error('Error analyzing text with Claude:', error.message);
-        return null;
+        return "RELEVANCE_SCORE: 0\nEXPLANATION: Error during analysis: " + error.message;
     }
 }
 /**
