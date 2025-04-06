@@ -1,8 +1,17 @@
+// src/analysis/claudeClient.ts
 import Anthropic from '@anthropic-ai/sdk';
 import PQueue from 'p-queue';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import CONFIG from '../config.js';
+// Constants for Claude models' token limits
+const MODEL_TOKEN_LIMITS = {
+    'claude-3-haiku-20240307': 4096,
+    'claude-3-sonnet-20240229': 4096,
+    'claude-3-opus-20240229': 4096,
+    // Add other models as needed
+    'default': 4000 // Default fallback
+};
 // Initialize Anthropic client with API key validation
 const client = new Anthropic({
     apiKey: CONFIG.claude.apiKey || process.env.ANTHROPIC_API_KEY,
@@ -101,6 +110,12 @@ export async function checkCostLimit() {
     return true;
 }
 /**
+ * Get the maximum token limit for the specified model
+ */
+function getModelTokenLimit(model) {
+    return MODEL_TOKEN_LIMITS[model] || MODEL_TOKEN_LIMITS.default;
+}
+/**
  * Analyze text with Claude API
  */
 export async function analyzeText(text, prompt, maxResponseTokens = 1000) {
@@ -121,12 +136,18 @@ export async function analyzeText(text, prompt, maxResponseTokens = 1000) {
             console.error(`This request would exceed the monthly cost limit of $${CONFIG.claude.monthlyCostLimit}`);
             return "RELEVANCE_SCORE: 0\nEXPLANATION: Analysis skipped due to cost constraints.";
         }
+        // Ensure maxResponseTokens does not exceed the model's limit
+        const modelLimit = getModelTokenLimit(CONFIG.claude.model);
+        const safeMaxTokens = Math.min(maxResponseTokens, modelLimit);
+        if (maxResponseTokens > modelLimit) {
+            console.warn(`Requested ${maxResponseTokens} tokens exceeds model limit of ${modelLimit}. Using ${safeMaxTokens} tokens instead.`);
+        }
         // Add the request to the rate-limited queue
         const responseData = await requestQueue.add(async () => {
-            console.log("Sending request to Claude API...");
+            console.log(`Sending request to Claude API with max_tokens=${safeMaxTokens}...`);
             return await client.messages.create({
                 model: CONFIG.claude.model,
-                max_tokens: maxResponseTokens,
+                max_tokens: safeMaxTokens,
                 messages: [
                     {
                         role: 'user',
@@ -137,7 +158,7 @@ export async function analyzeText(text, prompt, maxResponseTokens = 1000) {
         });
         // Extract usage information if available
         let inputTokenCount = estimatedInputTokens;
-        let outputTokenCount = Math.ceil(maxResponseTokens / 2); // Default estimate
+        let outputTokenCount = Math.ceil(safeMaxTokens / 2); // Default estimate
         if (responseData && responseData.usage) {
             inputTokenCount = responseData.usage.input_tokens;
             outputTokenCount = responseData.usage.output_tokens;

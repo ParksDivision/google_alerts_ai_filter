@@ -85,19 +85,27 @@ export function parseBatchAnalysisResult(result: string | null): Map<string, { s
 export async function analyzeArticlesBatch(
   articles: ArticleOutput[], 
   criteria: string,
-  batchSize = 5 // Default to 5 articles per batch
+  batchSize: number = CONFIG.performance.batchSize // Use the batch size from CONFIG
 ): Promise<AnalyzedArticle[]> {
   console.log(`Starting batch analysis of ${articles.length} articles...`);
+  
+  // Use the batch size from CONFIG but cap it at 2 articles for reliability
+  const maxSafeBatchSize = 2; // Only 2 articles per batch for better reliability
+  const actualBatchSize = Math.min(batchSize, maxSafeBatchSize);
+  
+  if (batchSize > maxSafeBatchSize) {
+    console.warn(`Reducing batch size from ${batchSize} to ${maxSafeBatchSize} to avoid token limit errors`);
+  }
   
   const results: AnalyzedArticle[] = [];
   const batches: ArticleOutput[][] = [];
   
   // Split articles into batches
-  for (let i = 0; i < articles.length; i += batchSize) {
-    batches.push(articles.slice(i, i + batchSize));
+  for (let i = 0; i < articles.length; i += actualBatchSize) {
+    batches.push(articles.slice(i, i + actualBatchSize));
   }
   
-  console.log(`Created ${batches.length} batches with max ${batchSize} articles per batch`);
+  console.log(`Created ${batches.length} batches with max ${actualBatchSize} articles per batch`);
   
   let successCount = 0;
   let errorCount = 0;
@@ -116,7 +124,8 @@ export async function analyzeArticlesBatch(
       const articleContent = article.content || '';
       
       // Create a text excerpt if the content is too long
-      const maxContentLength = Math.floor(5000 / batch.length); // Adjust content length based on batch size
+      // Use 7500 character limit per article as requested
+      const maxContentLength = 7500;
       const truncatedContent = articleContent.length > maxContentLength 
         ? articleContent.substring(0, maxContentLength) + '...[truncated]'
         : articleContent;
@@ -134,8 +143,8 @@ export async function analyzeArticlesBatch(
     
     try {
       // Send to Claude for analysis
-      // Increase max tokens for batch processing
-      const maxResponseTokens = 1000 * batch.length; 
+      // Conservative token limit because we're keeping more content
+      const maxResponseTokens = Math.min(CONFIG.claude.maxTokensPerRequest, 2000); // Use CONFIG with a cap of 2000
       const result = await analyzeText(batchContent, prompt, maxResponseTokens);
       
       // Parse the batch result
@@ -195,9 +204,10 @@ export async function analyzeArticles(
   articles: ArticleOutput[], 
   criteria: string
 ): Promise<AnalyzedArticle[]> {
-  // Get batch size from config or use default
-  const batchSize = CONFIG.performance.batchSize || 5;
+  // Use batch size from CONFIG
+  const configBatchSize = CONFIG.performance.batchSize || 2;
+  const safeBatchSize = Math.min(configBatchSize, 2); // Limit to 2 articles per batch
   
   // Use batch processing for efficiency
-  return analyzeArticlesBatch(articles, criteria, batchSize);
+  return analyzeArticlesBatch(articles, criteria, safeBatchSize);
 }

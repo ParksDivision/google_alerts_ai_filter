@@ -32,11 +32,11 @@ const ConfigSchema = z.object({
     claude: z.object({
         apiKey: z.string().min(1),
         model: z.string().default('claude-3-haiku-20240307'),
-        maxTokensPerRequest: z.coerce.number().int().positive().default(100000),
-        // Cost management
+        maxTokensPerRequest: z.coerce.number().int().positive().default(4000), // Updated to safe value
+        // Cost management (using correct per-token pricing)
         monthlyCostLimit: z.coerce.number().positive().default(20.0),
-        haiku_input_cost_per_1k: z.coerce.number().positive().default(0.25),
-        haiku_output_cost_per_1k: z.coerce.number().positive().default(1.25),
+        haiku_input_cost_per_1k: z.coerce.number().positive().default(0.00025), // Corrected pricing
+        haiku_output_cost_per_1k: z.coerce.number().positive().default(0.00125), // Corrected pricing
         // Rate limiting
         requestsPerMinute: z.coerce.number().int().positive().default(15),
         maxConcurrent: z.coerce.number().int().positive().default(5),
@@ -51,7 +51,7 @@ const ConfigSchema = z.object({
     // Performance settings
     performance: z.object({
         enableBatching: z.coerce.boolean().default(true),
-        batchSize: z.coerce.number().int().positive().default(50),
+        batchSize: z.coerce.number().int().positive().default(2), // Updated to 2 articles per batch
         lowMemoryMode: z.coerce.boolean().default(false),
     }),
     // Logging
@@ -80,8 +80,8 @@ export const CONFIG = ConfigSchema.parse({
         model: process.env.CLAUDE_MODEL,
         maxTokensPerRequest: process.env.CLAUDE_MAX_TOKENS,
         monthlyCostLimit: process.env.MONTHLY_COST_LIMIT,
-        haiku_input_cost_per_1k: 0.00025, // Corrected from 0.25
-        haiku_output_cost_per_1k: 0.00125, // Corrected from 1.25
+        haiku_input_cost_per_1k: 0.00025, // Fixed correct pricing
+        haiku_output_cost_per_1k: 0.00125, // Fixed correct pricing
         requestsPerMinute: process.env.CLAUDE_REQUESTS_PER_MINUTE,
         maxConcurrent: process.env.CLAUDE_MAX_CONCURRENT,
     },

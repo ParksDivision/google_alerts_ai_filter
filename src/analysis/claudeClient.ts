@@ -1,3 +1,4 @@
+// src/analysis/claudeClient.ts
 import Anthropic from '@anthropic-ai/sdk';
 import PQueue from 'p-queue';
 import { promises as fs } from 'node:fs';
@@ -12,6 +13,15 @@ export interface CostTracking {
   lastUpdated: string;
   requestCount: number;
 }
+
+// Constants for Claude models' token limits
+const MODEL_TOKEN_LIMITS: Record<string, number> = {
+  'claude-3-haiku-20240307': 4096,
+  'claude-3-sonnet-20240229': 4096,
+  'claude-3-opus-20240229': 4096,
+  // Add other models as needed
+  'default': 4000 // Default fallback
+};
 
 // Initialize Anthropic client with API key validation
 const client = new Anthropic({
@@ -130,6 +140,13 @@ export async function checkCostLimit(): Promise<boolean> {
 }
 
 /**
+ * Get the maximum token limit for the specified model
+ */
+function getModelTokenLimit(model: string): number {
+  return MODEL_TOKEN_LIMITS[model] || MODEL_TOKEN_LIMITS.default;
+}
+
+/**
  * Analyze text with Claude API
  */
 export async function analyzeText(
@@ -162,12 +179,20 @@ export async function analyzeText(
       return "RELEVANCE_SCORE: 0\nEXPLANATION: Analysis skipped due to cost constraints.";
     }
     
+    // Ensure maxResponseTokens does not exceed the model's limit
+    const modelLimit = getModelTokenLimit(CONFIG.claude.model);
+    const safeMaxTokens = Math.min(maxResponseTokens, modelLimit);
+    
+    if (maxResponseTokens > modelLimit) {
+      console.warn(`Requested ${maxResponseTokens} tokens exceeds model limit of ${modelLimit}. Using ${safeMaxTokens} tokens instead.`);
+    }
+    
     // Add the request to the rate-limited queue
     const responseData = await requestQueue.add(async () => {
-      console.log("Sending request to Claude API...");
+      console.log(`Sending request to Claude API with max_tokens=${safeMaxTokens}...`);
       return await client.messages.create({
         model: CONFIG.claude.model,
-        max_tokens: maxResponseTokens,
+        max_tokens: safeMaxTokens,
         messages: [
           {
             role: 'user',
@@ -179,7 +204,7 @@ export async function analyzeText(
     
     // Extract usage information if available
     let inputTokenCount = estimatedInputTokens;
-    let outputTokenCount = Math.ceil(maxResponseTokens / 2); // Default estimate
+    let outputTokenCount = Math.ceil(safeMaxTokens / 2); // Default estimate
     
     if (responseData && responseData.usage) {
       inputTokenCount = responseData.usage.input_tokens;
