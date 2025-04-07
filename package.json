@@ -12,6 +12,7 @@
     "analyze": "node dist/index.js analyze",
     "serve": "node dist/index.js serve",
     "process-rss": "node dist/index.js process-rss",
+    "process-rss-fixed": "node dist/test-fixed-processor.js",
     "run-all": "node dist/index.js run-all"
   },
   "keywords": [

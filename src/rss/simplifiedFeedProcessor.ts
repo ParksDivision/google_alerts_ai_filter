@@ -1,14 +1,14 @@
-// src/rss/feedProcessor.ts
+// src/rss/simplifiedFeedProcessor.ts
 import { promises as fs } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 import { parse } from 'fast-csv';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { format as formatCsv } from '@fast-csv/format';
+import { createReadStream } from 'node:fs';
 import pLimit from 'p-limit';
 import Parser from 'rss-parser';
 import { setTimeout as sleep } from 'node:timers/promises';
 import CONFIG from '../config.js';
 import { ArticleInput } from '../scraper/index.js';
+import { writeArticlesToCsv } from '../utils/manualCsvWriter.js';
 
 // Define the structure for RSS feed configuration
 export interface RssFeedConfig {
@@ -16,24 +16,8 @@ export interface RssFeedConfig {
   alertName: string;
 }
 
-// Define the parser with custom fields
-interface CustomFeed {
-  feedUrl: string;
-  title: string;
-  description?: string;
-  link?: string;
-}
-
-interface CustomItem {
-  title: string;
-  link: string;
-  pubDate?: string;
-  content?: string;
-  contentSnippet?: string;
-  guid?: string;
-}
-
-const parser = new Parser<CustomFeed, CustomItem>({
+// Create parser for RSS feeds
+const parser = new Parser({
   customFields: {
     item: [
       ['media:content', 'mediaContent'],
@@ -43,39 +27,53 @@ const parser = new Parser<CustomFeed, CustomItem>({
 });
 
 /**
- * Ensure CSV-safe values by converting objects to strings
- */
-function ensureCsvSafeValue(value: any): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  
-  if (typeof value === 'object') {
-    // Convert objects to JSON strings
-    return JSON.stringify(value);
-  }
-  
-  // Convert all other types to string
-  return String(value);
-}
-
-/**
- * Read RSS feed URLs from a CSV file
+ * Read RSS feed URLs from a CSV file with better error handling
  */
 export async function readRssFeeds(filePath: string): Promise<RssFeedConfig[]> {
+  console.log(`Reading RSS feeds from ${filePath}`);
+  
+  // Verify the file exists first
+  try {
+    await fs.access(filePath);
+  } catch (error) {
+    console.error(`File does not exist or is not accessible: ${filePath}`);
+    throw new Error(`Cannot access file: ${filePath}`);
+  }
+  
   return new Promise((resolve, reject) => {
     const feeds: RssFeedConfig[] = [];
     
     createReadStream(filePath)
-      .pipe(parse({ headers: true, trim: true }))
-      .on('error', error => reject(error))
-      .on('data', (row: any) => {
-        feeds.push({
-          url: row['Feed URL'] || row['URL'] || '',
-          alertName: row['Alert Name'] || row['Name'] || 'Unknown Alert',
-        });
+      .on('error', (error) => {
+        console.error(`Error reading file: ${error.message}`);
+        reject(error);
       })
-      .on('end', () => resolve(feeds));
+      .pipe(parse({ headers: true, trim: true }))
+      .on('error', error => {
+        console.error(`Error parsing CSV: ${error.message}`);
+        reject(error);
+      })
+      .on('data', (row: any) => {
+        try {
+          // Try to handle different column naming conventions
+          const feedUrl = row['Feed URL'] || row['URL'] || '';
+          const alertName = row['Alert Name'] || row['Name'] || '';
+          
+          if (feedUrl) {
+            feeds.push({
+              url: feedUrl,
+              alertName: alertName || String(row[Object.keys(row)[1]]) || 'Unknown'
+            });
+          }
+        } catch (error) {
+          console.warn('Error processing row:', error);
+          // Continue processing other rows
+        }
+      })
+      .on('end', () => {
+        console.log(`Successfully read ${feeds.length} feeds from CSV`);
+        resolve(feeds);
+      });
   });
 }
 
@@ -142,42 +140,6 @@ export async function processRssFeeds(feedsConfig: RssFeedConfig[]): Promise<Art
 }
 
 /**
- * Export the processed articles to CSV in the format expected by the analyzer
- */
-export async function exportArticlesToCsv(
-  articles: ArticleInput[],
-  outputPath: string
-): Promise<string> {
-  try {
-    // Ensure output directory exists
-    await fs.mkdir(dirname(outputPath), { recursive: true });
-    
-    return new Promise((resolve, reject) => {
-      const writeStream = createWriteStream(outputPath);
-      const csvStream = formatCsv({ headers: true });
-      
-      csvStream.pipe(writeStream);
-      
-      articles.forEach(article => {
-        csvStream.write({
-          'Alert Name': ensureCsvSafeValue(article.alertName),
-          'Title': ensureCsvSafeValue(article.title),
-          'Link': ensureCsvSafeValue(article.link)
-        });
-      });
-      
-      csvStream.end();
-      
-      writeStream.on('finish', () => resolve(outputPath));
-      writeStream.on('error', reject);
-    });
-  } catch (error) {
-    console.error(`Error writing CSV file ${outputPath}:`, error);
-    throw error;
-  }
-}
-
-/**
  * Main function to process RSS feeds and export to CSV
  */
 export async function processAndExportRssFeeds(
@@ -200,8 +162,8 @@ export async function processAndExportRssFeeds(
   // Process feeds
   const articles = await processRssFeeds(feedsConfig);
   
-  // Export to CSV
-  const exportedPath = await exportArticlesToCsv(articles, actualOutputPath);
+  // Export to CSV using our custom writer instead of fast-csv
+  const exportedPath = await writeArticlesToCsv(articles, actualOutputPath);
   console.log(`Exported ${articles.length} articles to ${exportedPath}`);
   
   return exportedPath;

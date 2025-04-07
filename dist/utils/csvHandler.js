@@ -1,3 +1,4 @@
+// src/utils/csvHandler.ts
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'fast-csv';
@@ -45,6 +46,20 @@ export async function readScrapedArticles(filePath) {
     });
 }
 /**
+ * Ensure CSV-safe values by converting objects to strings
+ */
+function ensureCsvSafeValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    if (typeof value === 'object') {
+        // Convert objects to JSON strings
+        return JSON.stringify(value);
+    }
+    // Convert all other types to string
+    return String(value);
+}
+/**
  * Write scraped articles to CSV
  */
 export async function writeScrapedArticles(articles, outputPath) {
@@ -58,11 +73,11 @@ export async function writeScrapedArticles(articles, outputPath) {
             csvStream.pipe(writeStream);
             articles.forEach(article => {
                 csvStream.write({
-                    'Alert Name': article.alertName,
-                    'Title': article.title,
-                    'Link': article.link,
-                    'Content': article.content,
-                    'Error': article.error || ''
+                    'Alert Name': ensureCsvSafeValue(article.alertName),
+                    'Title': ensureCsvSafeValue(article.title),
+                    'Link': ensureCsvSafeValue(article.link),
+                    'Content': ensureCsvSafeValue(article.content),
+                    'Error': ensureCsvSafeValue(article.error || '')
                 });
             });
             csvStream.end();
@@ -89,13 +104,13 @@ export async function writeAnalyzedArticles(articles, outputPath) {
             csvStream.pipe(writeStream);
             articles.forEach(article => {
                 csvStream.write({
-                    'Relevance Score': article.relevanceScore,
-                    'Alert Name': article.alertName,
-                    'Title': article.title,
-                    'Link': article.link,
-                    'Relevance Explanation': article.relevanceExplanation,
-                    'Content': article.content,
-                    'Error': article.error || ''
+                    'Relevance Score': ensureCsvSafeValue(article.relevanceScore),
+                    'Alert Name': ensureCsvSafeValue(article.alertName),
+                    'Title': ensureCsvSafeValue(article.title),
+                    'Link': ensureCsvSafeValue(article.link),
+                    'Relevance Explanation': ensureCsvSafeValue(article.relevanceExplanation),
+                    'Content': ensureCsvSafeValue(article.content),
+                    'Error': ensureCsvSafeValue(article.error || '')
                 });
             });
             csvStream.end();

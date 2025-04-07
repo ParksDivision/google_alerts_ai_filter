@@ -4,6 +4,20 @@ import XLSX from 'xlsx-js-style';
 import { writeAnalyzedArticles } from './csvHandler.js';
 import CONFIG from '../config.js';
 /**
+ * Ensure CSV-safe values by converting objects to strings
+ */
+function ensureCsvSafeValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    if (typeof value === 'object') {
+        // Convert objects to JSON strings
+        return JSON.stringify(value);
+    }
+    // Convert all other types to string
+    return String(value);
+}
+/**
  * Export analyzed articles to the specified format
  */
 export async function exportAnalyzedArticles(articles, options) {
@@ -114,6 +128,7 @@ export async function exportToExcel(articles, outputPath, includeFullContent, ch
  */
 export async function exportToJson(articles, outputPath, includeFullContent) {
     const exportData = articles.map(article => {
+        // Create a safe copy of the article data
         const data = {
             relevanceScore: article.relevanceScore,
             alertName: article.alertName,
