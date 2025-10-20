@@ -3,6 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from 'dotenv';
 import authRoutes from './routes/auth.js';
+import feedRoutes from './routes/feeds.js';
+import promptRoutes from './routes/prompts.js';
+import jobRoutes from './routes/jobs.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { testConnection } from './db/connection.js';
 
@@ -43,7 +46,7 @@ export function createApiServer(): Express {
   // Health Check
   // ============================================================================
 
-  app.get('/health', async (req: Request, res: Response) => {
+  app.get('/health', async (_req: Request, res: Response) => {
     try {
       const dbConnected = await testConnection();
 
@@ -70,16 +73,20 @@ export function createApiServer(): Express {
   // Authentication routes
   app.use('/api/auth', authRoutes);
 
-  // TODO: Add more routes
-  // app.use('/api/feeds', feedRoutes);
-  // app.use('/api/prompts', promptRoutes);
-  // app.use('/api/jobs', jobRoutes);
+  // RSS Feed routes
+  app.use('/api/feeds', feedRoutes);
+
+  // Analysis Prompt routes
+  app.use('/api/prompts', promptRoutes);
+
+  // Analysis Job routes
+  app.use('/api/jobs', jobRoutes);
 
   // ============================================================================
   // Root Route
   // ============================================================================
 
-  app.get('/', (req: Request, res: Response) => {
+  app.get('/', (_req: Request, res: Response) => {
     res.json({
       name: 'RSS Content Analyzer API',
       version: '1.0.0',
@@ -87,6 +94,9 @@ export function createApiServer(): Express {
       endpoints: {
         health: '/health',
         auth: '/api/auth/*',
+        feeds: '/api/feeds/*',
+        prompts: '/api/prompts/*',
+        jobs: '/api/jobs/*',
         docs: 'Coming soon',
       },
     });
@@ -108,7 +118,7 @@ export function createApiServer(): Express {
   // Error Handler
   // ============================================================================
 
-  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);
 
     res.status(500).json({

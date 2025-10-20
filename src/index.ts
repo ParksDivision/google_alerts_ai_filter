@@ -452,7 +452,7 @@ async function cli() {
       const feedsFile = argv.feedsFile as string;
       const criteriaFile = argv.criteriaFile as string | undefined;
       
-      const result = await runEntirePipeline({
+      await runEntirePipeline({
         feedsFilePath: feedsFile,
         criteriaFilePath: criteriaFile,
         exportFormat: argv.exportFormat as ExportFormat,

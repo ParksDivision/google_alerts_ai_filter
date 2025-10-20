@@ -1,0 +1,108 @@
+### RSS Content Analyzer - RSS Feeds API Tests
+### You can use this file with REST Client extension in VS Code
+
+@baseUrl = http://localhost:3001
+@token = YOUR_ACCESS_TOKEN_HERE
+
+### List all feeds
+GET {{baseUrl}}/api/feeds
+Authorization: Bearer {{token}}
+
+### List active feeds only
+GET {{baseUrl}}/api/feeds?is_active=true
+Authorization: Bearer {{token}}
+
+### List feeds with pagination
+GET {{baseUrl}}/api/feeds?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Get single feed by ID
+GET {{baseUrl}}/api/feeds/FEED_ID_HERE
+Authorization: Bearer {{token}}
+
+### Create new feed
+POST {{baseUrl}}/api/feeds
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "url": "https://news.ycombinator.com/rss",
+  "name": "Hacker News",
+  "description": "Tech news and startups",
+  "is_active": true
+}
+
+### Update feed
+PUT {{baseUrl}}/api/feeds/FEED_ID_HERE
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Hacker News - Updated",
+  "description": "Updated description"
+}
+
+### Toggle feed active status
+PATCH {{baseUrl}}/api/feeds/FEED_ID_HERE/toggle
+Authorization: Bearer {{token}}
+
+### Delete feed
+DELETE {{baseUrl}}/api/feeds/FEED_ID_HERE
+Authorization: Bearer {{token}}
+
+### Test feed URL (without saving)
+POST {{baseUrl}}/api/feeds/test
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "url": "https://news.ycombinator.com/rss"
+}
+
+### Bulk import feeds
+POST {{baseUrl}}/api/feeds/bulk-import
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "feeds": [
+    {
+      "url": "https://news.ycombinator.com/rss",
+      "name": "Hacker News",
+      "description": "Tech news"
+    },
+    {
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+      "name": "NYT Technology",
+      "description": "New York Times tech section"
+    },
+    {
+      "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+      "name": "BBC Tech",
+      "description": "BBC technology news"
+    }
+  ]
+}
+
+### Export feeds to CSV
+GET {{baseUrl}}/api/feeds/export/csv
+Authorization: Bearer {{token}}
+
+###
+# Example curl commands:
+#
+# List feeds:
+# curl http://localhost:3001/api/feeds \
+#   -H "Authorization: Bearer YOUR_TOKEN"
+#
+# Create feed:
+# curl -X POST http://localhost:3001/api/feeds \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -H "Content-Type: application/json" \
+#   -d '{"url":"https://news.ycombinator.com/rss","name":"Hacker News"}'
+#
+# Test feed:
+# curl -X POST http://localhost:3001/api/feeds/test \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -H "Content-Type: application/json" \
+#   -d '{"url":"https://news.ycombinator.com/rss"}'

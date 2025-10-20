@@ -1,0 +1,73 @@
+### RSS Content Analyzer - Authentication API Tests
+### You can use this file with REST Client extension in VS Code
+### Or use curl/Postman with these examples
+
+@baseUrl = http://localhost:3001
+@email = test@example.com
+@password = TestPassword123
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Register New User
+# @name register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "Test User"
+}
+
+### Login
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Get Current User (requires token from login)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+
+### Update Profile (requires token)
+PUT {{baseUrl}}/api/auth/me
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "name": "Updated Name"
+}
+
+### Refresh Token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### Logout
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+
+###
+# Example using curl:
+#
+# Register:
+# curl -X POST http://localhost:3001/api/auth/register \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","password":"TestPassword123","name":"Test User"}'
+#
+# Login:
+# curl -X POST http://localhost:3001/api/auth/login \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","password":"TestPassword123"}'
+#
+# Get current user:
+# curl http://localhost:3001/api/auth/me \
+#   -H "Authorization: Bearer YOUR_TOKEN_HERE"

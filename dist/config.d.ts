@@ -40,8 +40,27 @@ declare const ConfigSchema: z.ZodObject<{
         retries?: number | undefined;
         useProxy?: boolean | undefined;
     }>;
+    openai: z.ZodObject<{
+        apiKey: z.ZodDefault<z.ZodString>;
+        model: z.ZodDefault<z.ZodString>;
+        maxTokensPerRequest: z.ZodDefault<z.ZodNumber>;
+        requestsPerMinute: z.ZodDefault<z.ZodNumber>;
+        maxConcurrent: z.ZodDefault<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        maxConcurrent: number;
+        apiKey: string;
+        model: string;
+        maxTokensPerRequest: number;
+        requestsPerMinute: number;
+    }, {
+        maxConcurrent?: number | undefined;
+        apiKey?: string | undefined;
+        model?: string | undefined;
+        maxTokensPerRequest?: number | undefined;
+        requestsPerMinute?: number | undefined;
+    }>;
     claude: z.ZodObject<{
-        apiKey: z.ZodString;
+        apiKey: z.ZodDefault<z.ZodString>;
         model: z.ZodDefault<z.ZodString>;
         maxTokensPerRequest: z.ZodDefault<z.ZodNumber>;
         monthlyCostLimit: z.ZodDefault<z.ZodNumber>;
@@ -54,19 +73,19 @@ declare const ConfigSchema: z.ZodObject<{
         apiKey: string;
         model: string;
         maxTokensPerRequest: number;
+        requestsPerMinute: number;
         monthlyCostLimit: number;
         haiku_input_cost_per_1k: number;
         haiku_output_cost_per_1k: number;
-        requestsPerMinute: number;
     }, {
-        apiKey: string;
         maxConcurrent?: number | undefined;
+        apiKey?: string | undefined;
         model?: string | undefined;
         maxTokensPerRequest?: number | undefined;
+        requestsPerMinute?: number | undefined;
         monthlyCostLimit?: number | undefined;
         haiku_input_cost_per_1k?: number | undefined;
         haiku_output_cost_per_1k?: number | undefined;
-        requestsPerMinute?: number | undefined;
     }>;
     export: z.ZodObject<{
         defaultFormat: z.ZodDefault<z.ZodEnum<["csv", "excel", "json", "markdown", "html"]>>;
@@ -74,12 +93,12 @@ declare const ConfigSchema: z.ZodObject<{
         chunkSize: z.ZodDefault<z.ZodNumber>;
         minRelevanceScore: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        defaultFormat: "csv" | "excel" | "json" | "markdown" | "html";
+        defaultFormat: "html" | "csv" | "excel" | "json" | "markdown";
         includeFullContent: boolean;
         chunkSize: number;
         minRelevanceScore: number;
     }, {
-        defaultFormat?: "csv" | "excel" | "json" | "markdown" | "html" | undefined;
+        defaultFormat?: "html" | "csv" | "excel" | "json" | "markdown" | undefined;
         includeFullContent?: boolean | undefined;
         chunkSize?: number | undefined;
         minRelevanceScore?: number | undefined;
@@ -115,18 +134,25 @@ declare const ConfigSchema: z.ZodObject<{
         retries: number;
         useProxy: boolean;
     };
+    openai: {
+        maxConcurrent: number;
+        apiKey: string;
+        model: string;
+        maxTokensPerRequest: number;
+        requestsPerMinute: number;
+    };
     claude: {
         maxConcurrent: number;
         apiKey: string;
         model: string;
         maxTokensPerRequest: number;
+        requestsPerMinute: number;
         monthlyCostLimit: number;
         haiku_input_cost_per_1k: number;
         haiku_output_cost_per_1k: number;
-        requestsPerMinute: number;
     };
     export: {
-        defaultFormat: "csv" | "excel" | "json" | "markdown" | "html";
+        defaultFormat: "html" | "csv" | "excel" | "json" | "markdown";
         includeFullContent: boolean;
         chunkSize: number;
         minRelevanceScore: number;
@@ -152,18 +178,25 @@ declare const ConfigSchema: z.ZodObject<{
         retries?: number | undefined;
         useProxy?: boolean | undefined;
     };
-    claude: {
-        apiKey: string;
+    openai: {
         maxConcurrent?: number | undefined;
+        apiKey?: string | undefined;
         model?: string | undefined;
         maxTokensPerRequest?: number | undefined;
+        requestsPerMinute?: number | undefined;
+    };
+    claude: {
+        maxConcurrent?: number | undefined;
+        apiKey?: string | undefined;
+        model?: string | undefined;
+        maxTokensPerRequest?: number | undefined;
+        requestsPerMinute?: number | undefined;
         monthlyCostLimit?: number | undefined;
         haiku_input_cost_per_1k?: number | undefined;
         haiku_output_cost_per_1k?: number | undefined;
-        requestsPerMinute?: number | undefined;
     };
     export: {
-        defaultFormat?: "csv" | "excel" | "json" | "markdown" | "html" | undefined;
+        defaultFormat?: "html" | "csv" | "excel" | "json" | "markdown" | undefined;
         includeFullContent?: boolean | undefined;
         chunkSize?: number | undefined;
         minRelevanceScore?: number | undefined;
@@ -194,18 +227,25 @@ export declare const CONFIG: {
         retries: number;
         useProxy: boolean;
     };
+    openai: {
+        maxConcurrent: number;
+        apiKey: string;
+        model: string;
+        maxTokensPerRequest: number;
+        requestsPerMinute: number;
+    };
     claude: {
         maxConcurrent: number;
         apiKey: string;
         model: string;
         maxTokensPerRequest: number;
+        requestsPerMinute: number;
         monthlyCostLimit: number;
         haiku_input_cost_per_1k: number;
         haiku_output_cost_per_1k: number;
-        requestsPerMinute: number;
     };
     export: {
-        defaultFormat: "csv" | "excel" | "json" | "markdown" | "html";
+        defaultFormat: "html" | "csv" | "excel" | "json" | "markdown";
         includeFullContent: boolean;
         chunkSize: number;
         minRelevanceScore: number;

@@ -1,5 +1,5 @@
 // src/analysis/index.ts
-import { getCostInformation } from './claudeClient.js';
+import { getCostInformation } from './openaiClient.js';
 import { analyzeArticlesBatch, AnalyzedArticle } from './relevanceAnalyzer.js';
 import { ArticleOutput } from '../scraper/index.js';
 import { deduplicateScrapedArticles } from '../utils/deduplicationUtils.js';
@@ -38,7 +38,7 @@ export async function analyzeContent(
   
   // Get batch size from config
   const batchSize = CONFIG.performance.batchSize || 5;
-  console.log(`Using batch size of ${batchSize} for Claude analysis`);
+  console.log(`Using batch size of ${batchSize} for AI analysis`);
   
   // Analyze articles in batches based on criteria
   const analyzedArticles = await analyzeArticlesBatch(

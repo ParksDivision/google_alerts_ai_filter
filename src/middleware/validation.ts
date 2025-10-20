@@ -31,6 +31,9 @@ export function validateBody(schema: z.ZodSchema) {
   };
 }
 
+// Alias for backward compatibility
+export const validateRequest = validateBody;
+
 /**
  * Validate request query parameters against schema
  */

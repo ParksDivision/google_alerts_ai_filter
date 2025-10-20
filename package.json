@@ -18,7 +18,8 @@
     "run-all": "node dist/index.js run-all",
     "migrate": "ts-node --esm scripts/migrate.ts up",
     "migrate:status": "ts-node --esm scripts/migrate.ts status",
-    "db:test": "ts-node --esm scripts/test-db.ts"
+    "db:test": "ts-node --esm scripts/test-db.ts",
+    "import-feeds": "ts-node --esm scripts/import-feeds-from-csv.ts"
   },
   "keywords": [
     "rss",
@@ -44,6 +45,7 @@
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
     "node-pg-migrate": "^8.0.3",
+    "openai": "^6.5.0",
     "p-limit": "^5.0.0",
     "p-queue": "^8.0.1",
     "pg": "^8.16.3",

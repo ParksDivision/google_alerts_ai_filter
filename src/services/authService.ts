@@ -41,7 +41,7 @@ export function generateAccessToken(userId: string, email: string): string {
   return jwt.sign(
     { userId, email, type: 'access' },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
   );
 }
 
@@ -52,7 +52,7 @@ export function generateRefreshToken(userId: string): string {
   return jwt.sign(
     { userId, type: 'refresh' },
     JWT_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRES_IN }
+    { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions
   );
 }
 

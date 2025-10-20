@@ -1,0 +1,237 @@
+###
+# Job API Testing
+# Replace {{token}} with your actual JWT token from login
+###
+
+@baseUrl = http://localhost:3001/api
+@token = YOUR_JWT_TOKEN_HERE
+
+###
+# 1. Create a new analysis job with default prompt and all active feeds
+POST {{baseUrl}}/jobs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "min_relevance_score": 70,
+  "export_format": "html",
+  "include_full_content": true
+}
+
+###
+# 2. Create a job with specific prompt and feeds
+POST {{baseUrl}}/jobs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prompt_id": "UUID_OF_PROMPT",
+  "feed_ids": ["UUID_OF_FEED_1", "UUID_OF_FEED_2"],
+  "min_relevance_score": 60,
+  "export_format": "excel",
+  "include_full_content": false
+}
+
+###
+# 3. List all jobs (with pagination)
+GET {{baseUrl}}/jobs?limit=50&offset=0
+Authorization: Bearer {{token}}
+
+###
+# 4. List only completed jobs
+GET {{baseUrl}}/jobs?status=completed&limit=20
+Authorization: Bearer {{token}}
+
+###
+# 5. List only running jobs
+GET {{baseUrl}}/jobs?status=running
+Authorization: Bearer {{token}}
+
+###
+# 6. Get job statistics
+GET {{baseUrl}}/jobs/stats
+Authorization: Bearer {{token}}
+
+###
+# 7. Get specific job details
+GET {{baseUrl}}/jobs/JOB_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+# 8. Get job progress (Server-Sent Events)
+# Note: This endpoint streams data. Use a browser or EventSource client to test.
+# Example JavaScript:
+#
+# const eventSource = new EventSource('http://localhost:3001/api/jobs/JOB_ID/progress', {
+#   headers: { 'Authorization': 'Bearer YOUR_TOKEN' }
+# });
+#
+# eventSource.onmessage = (event) => {
+#   const progress = JSON.parse(event.data);
+#   console.log('Progress:', progress);
+# };
+#
+GET {{baseUrl}}/jobs/JOB_ID_HERE/progress
+Authorization: Bearer {{token}}
+
+###
+# 9. Get job results (analyzed articles)
+GET {{baseUrl}}/jobs/JOB_ID_HERE/results?limit=100&offset=0
+Authorization: Bearer {{token}}
+
+###
+# 10. Get only top results (high relevance scores)
+GET {{baseUrl}}/jobs/JOB_ID_HERE/results?limit=20&offset=0
+Authorization: Bearer {{token}}
+
+###
+# 11. Cancel a running job
+DELETE {{baseUrl}}/jobs/JOB_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+# Complete Workflow Example:
+#
+# Step 1: Login to get token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "TestPassword123"
+}
+
+# Step 2: Get or create a default prompt
+GET {{baseUrl}}/prompts/default
+Authorization: Bearer {{token}}
+
+# Step 3: List active feeds
+GET {{baseUrl}}/feeds?is_active=true
+Authorization: Bearer {{token}}
+
+# Step 4: Create and start a job
+POST {{baseUrl}}/jobs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "min_relevance_score": 70,
+  "export_format": "html",
+  "include_full_content": true
+}
+
+# Step 5: Monitor progress via SSE (use browser/EventSource)
+# GET {{baseUrl}}/jobs/RETURNED_JOB_ID/progress
+
+# Step 6: Get job details once completed
+GET {{baseUrl}}/jobs/RETURNED_JOB_ID
+Authorization: Bearer {{token}}
+
+# Step 7: Get analyzed articles
+GET {{baseUrl}}/jobs/RETURNED_JOB_ID/results
+Authorization: Bearer {{token}}
+
+###
+# Testing Progress Tracking with cURL:
+#
+# Create job and save job ID:
+# curl -X POST http://localhost:3001/api/jobs \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -H "Content-Type: application/json" \
+#   -d '{"min_relevance_score": 70, "export_format": "html"}' \
+#   | jq -r '.data.job.id'
+#
+# Monitor progress with SSE:
+# curl -N -H "Authorization: Bearer YOUR_TOKEN" \
+#   http://localhost:3001/api/jobs/JOB_ID/progress
+#
+# The -N flag disables buffering so you see updates in real-time
+###
+
+###
+# Example JavaScript EventSource client for progress tracking:
+#
+# <!DOCTYPE html>
+# <html>
+# <body>
+#   <h1>Job Progress Tracker</h1>
+#   <div id="progress"></div>
+#   <progress id="bar" value="0" max="100"></progress>
+#   <div id="status"></div>
+#
+#   <script>
+#     const jobId = 'YOUR_JOB_ID';
+#     const token = 'YOUR_TOKEN';
+#
+#     const eventSource = new EventSource(
+#       `http://localhost:3001/api/jobs/${jobId}/progress`,
+#       { headers: { 'Authorization': `Bearer ${token}` } }
+#     );
+#
+#     eventSource.onmessage = (event) => {
+#       const data = JSON.parse(event.data);
+#
+#       document.getElementById('bar').value = data.progress;
+#       document.getElementById('progress').innerText = `${data.progress}%`;
+#       document.getElementById('status').innerText =
+#         `${data.currentStep} (${data.status})`;
+#
+#       if (data.status === 'completed' || data.status === 'failed') {
+#         eventSource.close();
+#         console.log('Job finished:', data);
+#       }
+#     };
+#
+#     eventSource.onerror = (error) => {
+#       console.error('EventSource error:', error);
+#       eventSource.close();
+#     };
+#   </script>
+# </body>
+# </html>
+###
+
+###
+# Response Examples:
+#
+# Create Job Response:
+# {
+#   "success": true,
+#   "data": {
+#     "job": {
+#       "id": "uuid",
+#       "user_id": "uuid",
+#       "prompt_id": "uuid",
+#       "status": "pending",
+#       "feed_ids": ["uuid1", "uuid2"],
+#       "min_relevance_score": 70,
+#       "export_format": "html",
+#       "include_full_content": true,
+#       "created_at": "2025-10-20T...",
+#       "progress": 0
+#     },
+#     "message": "Job created and started. Use the progress endpoint to track status."
+#   }
+# }
+#
+# Progress SSE Stream:
+# data: {"status":"running","progress":5,"currentStep":"Fetching RSS feeds","totalArticles":0}
+# data: {"status":"running","progress":15,"currentStep":"Found 25 articles","totalArticles":25}
+# data: {"status":"running","progress":30,"currentStep":"Scraped 10/25 articles","processedArticles":10}
+# data: {"status":"running","progress":65,"currentStep":"Analyzed 15/25 articles","processedArticles":15}
+# data: {"status":"completed","progress":100,"currentStep":"Completed","message":"Analysis complete! 18 relevant articles found."}
+#
+# Job Stats Response:
+# {
+#   "success": true,
+#   "data": {
+#     "totalJobs": 15,
+#     "completedJobs": 12,
+#     "failedJobs": 2,
+#     "runningJobs": 1,
+#     "totalArticlesAnalyzed": 350,
+#     "totalCost": 2.45,
+#     "averageDuration": 125.5
+#   }
+# }
+###

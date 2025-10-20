@@ -1,4 +1,4 @@
-import { analyzeText } from './claudeClient.js';
+import { analyzeText } from './openaiClient.js';
 import { ArticleOutput } from '../scraper/index.js';
 import CONFIG from '../config.js';
 
@@ -35,17 +35,17 @@ Remember to only focus on the criteria provided. Be objective and consistent in 
 }
 
 /**
- * Parses the batch analysis result from Claude with enhanced error handling
+ * Parses the batch analysis result from AI with enhanced error handling
  */
 export function parseBatchAnalysisResult(result: string | null, expectedArticleIds: string[]): Map<string, { score: number, explanation: string }> {
   const articleResults = new Map<string, { score: number, explanation: string }>();
-  
+
   if (!result) {
-    console.error("Failed to get a response from Claude");
+    console.error("Failed to get a response from AI");
     return articleResults;
   }
 
-  console.log("Parsing Claude response...");
+  console.log("Parsing AI response...");
   
   // Try multiple parsing approaches to handle different response formats
   

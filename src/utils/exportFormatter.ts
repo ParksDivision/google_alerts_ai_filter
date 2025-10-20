@@ -6,24 +6,7 @@ import { AnalyzedArticle } from '../analysis/index.js';
 import { ExportFormat } from '../config.js';
 import CONFIG from '../config.js';
 
-/**
- * Ensure CSV-safe values by converting objects to strings
- */
-function ensureCsvSafeValue(value: any): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  
-  if (typeof value === 'object') {
-    // Convert objects to JSON strings
-    return JSON.stringify(value);
-  }
-  
-  // Convert all other types to string
-  return String(value);
-}
-
-// Then update the exportToJson function to ensure it sanitizes data
+// Utility functions for export formatting
 
 export interface ExportOptions {
   format: ExportFormat;

@@ -18,7 +18,7 @@ export declare const OptionsSchema: z.ZodObject<{
     inputCsvPath: string;
     criteria: string;
     skipScraping: boolean;
-    exportFormat: "csv" | "excel" | "json" | "markdown" | "html";
+    exportFormat: "html" | "csv" | "excel" | "json" | "markdown";
     startServer: boolean;
     port: number;
     scrapedDataPath?: string | undefined;
@@ -30,7 +30,7 @@ export declare const OptionsSchema: z.ZodObject<{
     minRelevanceScore?: number | undefined;
     skipScraping?: boolean | undefined;
     scrapedDataPath?: string | undefined;
-    exportFormat?: "csv" | "excel" | "json" | "markdown" | "html" | undefined;
+    exportFormat?: "html" | "csv" | "excel" | "json" | "markdown" | undefined;
     startServer?: boolean | undefined;
     port?: number | undefined;
 }>;

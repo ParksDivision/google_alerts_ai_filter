@@ -234,7 +234,7 @@ router.put(
 router.post(
   '/logout',
   authenticateToken,
-  async (req: AuthRequest, res: Response): Promise<void> => {
+  async (_req: AuthRequest, res: Response): Promise<void> => {
     // With JWT, logout is handled client-side by removing the token
     // This endpoint exists for consistency and can be used for logging/analytics
     res.json({

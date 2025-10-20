@@ -1,0 +1,105 @@
+### RSS Content Analyzer - Analysis Prompts API Tests
+### You can use this file with REST Client extension in VS Code
+
+@baseUrl = http://localhost:3001
+@token = YOUR_ACCESS_TOKEN_HERE
+
+### List all prompts
+GET {{baseUrl}}/api/prompts
+Authorization: Bearer {{token}}
+
+### List prompts with pagination
+GET {{baseUrl}}/api/prompts?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Search prompts
+GET {{baseUrl}}/api/prompts?search=healthcare
+Authorization: Bearer {{token}}
+
+### Get prompts with usage statistics
+GET {{baseUrl}}/api/prompts/stats
+Authorization: Bearer {{token}}
+
+### Get default prompt
+GET {{baseUrl}}/api/prompts/default
+Authorization: Bearer {{token}}
+
+### Get single prompt by ID
+GET {{baseUrl}}/api/prompts/PROMPT_ID_HERE
+Authorization: Bearer {{token}}
+
+### Create new prompt
+POST {{baseUrl}}/api/prompts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AI in Healthcare",
+  "description": "Focuses on artificial intelligence applications in medical field",
+  "prompt_text": "Analyze this article for information about artificial intelligence applications in healthcare.\n\nConsider:\n1. Mentions of specific AI technologies (machine learning, deep learning, etc.)\n2. Applications in diagnosis, treatment, or patient care\n3. Implementation in hospitals or healthcare systems\n4. Benefits, challenges, and ethical considerations\n5. Clinical trials or research studies with outcomes\n\nThe most relevant articles will contain specific examples of AI technologies being deployed in healthcare settings with measurable results.",
+  "is_default": false
+}
+
+### Create another prompt (Cybersecurity)
+POST {{baseUrl}}/api/prompts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Cybersecurity Threats",
+  "description": "Focus on emerging cybersecurity threats and vulnerabilities",
+  "prompt_text": "Analyze this article for information about cybersecurity threats and vulnerabilities.\n\nConsider:\n1. New attack vectors or exploit techniques\n2. Data breaches and their impact\n3. Security vulnerabilities in popular software\n4. Nation-state cyber activities\n5. Security recommendations and mitigation strategies\n\nHighly relevant articles will contain technical details about threats, affected systems, and protective measures.",
+  "is_default": false
+}
+
+### Update prompt
+PUT {{baseUrl}}/api/prompts/PROMPT_ID_HERE
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AI in Healthcare - Updated",
+  "description": "Updated description for healthcare AI"
+}
+
+### Set prompt as default
+PATCH {{baseUrl}}/api/prompts/PROMPT_ID_HERE/default
+Authorization: Bearer {{token}}
+
+### Duplicate prompt with new name
+POST {{baseUrl}}/api/prompts/PROMPT_ID_HERE/duplicate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AI in Healthcare - Copy"
+}
+
+### Delete prompt
+DELETE {{baseUrl}}/api/prompts/PROMPT_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+# Example curl commands:
+#
+# List prompts:
+# curl http://localhost:3001/api/prompts \
+#   -H "Authorization: Bearer YOUR_TOKEN"
+#
+# Create prompt:
+# curl -X POST http://localhost:3001/api/prompts \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "name": "AI in Healthcare",
+#     "prompt_text": "Analyze this article for AI in healthcare...",
+#     "is_default": true
+#   }'
+#
+# Get default prompt:
+# curl http://localhost:3001/api/prompts/default \
+#   -H "Authorization: Bearer YOUR_TOKEN"
+#
+# Set as default:
+# curl -X PATCH http://localhost:3001/api/prompts/PROMPT_ID/default \
+#   -H "Authorization: Bearer YOUR_TOKEN"

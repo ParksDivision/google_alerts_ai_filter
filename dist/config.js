@@ -28,16 +28,22 @@ const ConfigSchema = z.object({
         retries: z.coerce.number().int().nonnegative().default(3),
         useProxy: z.coerce.boolean().default(false),
     }),
-    // Claude API settings
+    // OpenAI API settings (primary)
+    openai: z.object({
+        apiKey: z.string().default(''),
+        model: z.string().default('gpt-5-mini'), // gpt-5, gpt-5-mini, or gpt-5-nano
+        maxTokensPerRequest: z.coerce.number().int().positive().default(4000),
+        requestsPerMinute: z.coerce.number().int().positive().default(60),
+        maxConcurrent: z.coerce.number().int().positive().default(10),
+    }),
+    // Claude API settings (legacy/optional)
     claude: z.object({
-        apiKey: z.string().min(1),
+        apiKey: z.string().default(''),
         model: z.string().default('claude-3-haiku-20240307'),
-        maxTokensPerRequest: z.coerce.number().int().positive().default(4000), // Updated to safe value
-        // Cost management (using correct per-token pricing)
+        maxTokensPerRequest: z.coerce.number().int().positive().default(4000),
         monthlyCostLimit: z.coerce.number().positive().default(20.0),
-        haiku_input_cost_per_1k: z.coerce.number().positive().default(0.00025), // Corrected pricing
-        haiku_output_cost_per_1k: z.coerce.number().positive().default(0.00125), // Corrected pricing
-        // Rate limiting
+        haiku_input_cost_per_1k: z.coerce.number().positive().default(0.00025),
+        haiku_output_cost_per_1k: z.coerce.number().positive().default(0.00125),
         requestsPerMinute: z.coerce.number().int().positive().default(15),
         maxConcurrent: z.coerce.number().int().positive().default(5),
     }),
@@ -75,13 +81,20 @@ export const CONFIG = ConfigSchema.parse({
         retries: process.env.SCRAPER_RETRIES,
         useProxy: process.env.USE_PROXY,
     },
+    openai: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: process.env.OPENAI_MODEL,
+        maxTokensPerRequest: process.env.OPENAI_MAX_TOKENS,
+        requestsPerMinute: process.env.OPENAI_REQUESTS_PER_MINUTE,
+        maxConcurrent: process.env.OPENAI_MAX_CONCURRENT,
+    },
     claude: {
         apiKey: process.env.CLAUDE_API_KEY || '',
         model: process.env.CLAUDE_MODEL,
         maxTokensPerRequest: process.env.CLAUDE_MAX_TOKENS,
         monthlyCostLimit: process.env.MONTHLY_COST_LIMIT,
-        haiku_input_cost_per_1k: 0.00025, // Fixed correct pricing
-        haiku_output_cost_per_1k: 0.00125, // Fixed correct pricing
+        haiku_input_cost_per_1k: 0.00025,
+        haiku_output_cost_per_1k: 0.00125,
         requestsPerMinute: process.env.CLAUDE_REQUESTS_PER_MINUTE,
         maxConcurrent: process.env.CLAUDE_MAX_CONCURRENT,
     },
