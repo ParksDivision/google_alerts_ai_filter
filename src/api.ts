@@ -8,9 +8,13 @@ import promptRoutes from './routes/prompts.js';
 import jobRoutes from './routes/jobs.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { testConnection } from './db/connection.js';
+import { validateAndExitOnError } from './utils/validateEnv.js';
 
 // Load environment variables
 config();
+
+// Validate environment variables before starting
+validateAndExitOnError();
 
 /**
  * Create and configure the API server
@@ -22,22 +26,45 @@ export function createApiServer(): Express {
   // Security Middleware
   // ============================================================================
 
-  // Helmet helps secure Express apps by setting various HTTP headers
-  app.use(helmet());
+  // Security headers with Helmet
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // For email templates if needed
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
+
+  // Hide Express server information
+  app.disable('x-powered-by');
 
   // CORS configuration
   const corsOptions = {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
     optionsSuccessStatus: 200,
+    maxAge: 86400, // 24 hours
   };
   app.use(cors(corsOptions));
 
-  // Parse JSON bodies
-  app.use(express.json());
+  // Request size limits to prevent DoS
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Parse URL-encoded bodies
-  app.use(express.urlencoded({ extended: true }));
+  // Request timeout to prevent slow requests from blocking
+  app.use((req, res, next) => {
+    req.setTimeout(30000); // 30 seconds
+    res.setTimeout(30000);
+    next();
+  });
 
   // Apply rate limiting to all API routes
   app.use('/api/', apiLimiter);

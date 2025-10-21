@@ -17,7 +17,11 @@ const poolConfig = {
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000', 10),
   // SSL configuration for production
   ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
+    ? {
+        // SECURITY: Validate SSL certificates in production
+        // If using self-signed cert, set DB_SSL_CA_PATH env var
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+      }
     : undefined,
 };
 
