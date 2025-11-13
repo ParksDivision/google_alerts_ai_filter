@@ -187,19 +187,37 @@ export async function analyzeText(
       console.warn(`Requested ${maxResponseTokens} tokens exceeds model limit of ${modelLimit}. Using ${safeMaxTokens} tokens instead.`);
     }
     
-    // Add the request to the rate-limited queue
+    // Add the request to the rate-limited queue with retry logic
     const responseData = await requestQueue.add(async () => {
-      console.log(`Sending request to Claude API with max_tokens=${safeMaxTokens}...`);
-      return await client.messages.create({
-        model: CONFIG.claude.model,
-        max_tokens: safeMaxTokens,
-        messages: [
-          {
-            role: 'user',
-            content: `${prompt}\n\nText to analyze:\n\n${safeText}`,
-          },
-        ],
-      });
+      let retries = 0;
+      const maxRetries = 5;
+
+      while (retries < maxRetries) {
+        try {
+          console.log(`Sending request to Claude API with max_tokens=${safeMaxTokens}... (attempt ${retries + 1}/${maxRetries})`);
+          return await client.messages.create({
+            model: CONFIG.claude.model,
+            max_tokens: safeMaxTokens,
+            messages: [
+              {
+                role: 'user',
+                content: `${prompt}\n\nText to analyze:\n\n${safeText}`,
+              },
+            ],
+          });
+        } catch (error: any) {
+          // Handle rate limit errors with exponential backoff
+          if (error.status === 429 && retries < maxRetries - 1) {
+            const waitTime = Math.min(1000 * Math.pow(2, retries), 60000); // Max 60 seconds
+            console.warn(`Rate limit hit, waiting ${waitTime}ms before retry ${retries + 1}/${maxRetries - 1}...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            retries++;
+            continue;
+          }
+          throw error;
+        }
+      }
+      throw new Error('Max retries exceeded');
     });
     
     // Extract usage information if available

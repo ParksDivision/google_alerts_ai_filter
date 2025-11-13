@@ -8,6 +8,7 @@
     "build": "rimraf dist && tsc",
     "start": "node dist/api.js",
     "dev": "ts-node --esm src/api.ts",
+    "heroku-postbuild": "npm run build",
     "lint": "eslint --ext .ts src/",
     "cli": "node dist/index.js",
     "cli:dev": "ts-node --esm src/index.ts",

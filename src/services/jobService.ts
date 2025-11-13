@@ -323,6 +323,10 @@ export async function getJobById(jobId: string, userId?: string): Promise<Analys
     job.feed_ids = JSON.parse(job.feed_ids as any);
   }
 
+  // Add aliases for frontend compatibility
+  (job as any).relevant_articles = job.articles_above_threshold;
+  (job as any).estimated_cost = job.ai_cost;
+
   return job;
 }
 
@@ -361,11 +365,14 @@ export async function listJobs(
     params
   );
 
-  // Parse feed_ids for each job
+  // Parse feed_ids for each job and add frontend-compatible field aliases
   const jobs = result.rows.map(job => {
     if (job.feed_ids && typeof job.feed_ids === 'string') {
       job.feed_ids = JSON.parse(job.feed_ids as any);
     }
+    // Add aliases for frontend compatibility
+    (job as any).relevant_articles = job.articles_above_threshold;
+    (job as any).estimated_cost = job.ai_cost;
     return job;
   });
 

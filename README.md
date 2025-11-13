@@ -1,15 +1,24 @@
 # RSS Content Analyzer
 
-A secure, modern tool to fetch RSS feeds, scrape, analyze, and sort content using Claude Haiku.
+A secure, full-stack application to fetch RSS feeds, scrape, analyze, and rank content using AI (OpenAI GPT-5 or Claude).
 
 ## Features
 
+### API Server (Production-Ready)
+- **RESTful API**: Complete Express.js API with JWT authentication
+- **User Management**: Secure registration, login, and profile management
+- **RSS Feed Management**: CRUD operations for RSS feeds with validation
+- **AI Analysis**: Use OpenAI GPT-5-mini or Claude to analyze content relevance
+- **Background Jobs**: Asynchronous analysis with real-time progress tracking
+- **Custom Prompts**: Create and manage analysis criteria templates
+- **Multiple Export Formats**: HTML, Excel, CSV, JSON, and Markdown
+- **Cost Management**: Built-in API cost tracking and budget limits
+- **Rate Limiting**: Protect against abuse with configurable rate limits
+- **PostgreSQL Database**: Full relational database with migrations
+
+### CLI Tool (Development & Standalone)
 - **RSS Feed Processing**: Fetch and process multiple RSS feeds to extract article links
 - **Secure Content Scraping**: Extract clean article content from RSS feed links
-- **AI Analysis**: Use Claude Haiku to analyze content relevance based on custom criteria
-- **Multiple Export Formats**: Export sorted results as HTML, Excel, CSV, JSON, or Markdown
-- **Cost Management**: Stay within your budget with built-in API cost tracking
-- **Type Safety**: Uses Zod for runtime validation and TypeScript for compile-time safety
 - **Batch Processing**: Handle large datasets efficiently
 - **Interactive Reports**: Filter and sort results with interactive HTML exports
 - **One-Command Execution**: Process everything from RSS feeds to HTML dashboard in a single command
@@ -24,15 +33,137 @@ cd rss-content-analyzer
 # Install dependencies
 npm install
 
+# Set up your environment variables
+cp .env.example .env
+# Edit .env with your database URL, JWT secret, and OpenAI API key
+
 # Build the project
 npm run build
 
-# Set up your .env file with your Claude API key
-cp .env.example .env
-# Edit .env with your Claude API key
+# Run database migrations
+npm run migrate
 ```
 
-## Quick Start
+## Modes of Operation
+
+This application can run in two modes:
+
+### 1. API Server Mode (Recommended for Production)
+Full-featured REST API with authentication, database, and multi-user support.
+
+```bash
+# Development
+npm run dev
+
+# Production
+npm start
+```
+
+### 2. CLI Mode (Standalone)
+Command-line tool for quick analysis without database or authentication.
+
+```bash
+npm run cli
+```
+
+## API Server Quick Start
+
+### Prerequisites
+1. PostgreSQL database
+2. OpenAI API key
+3. Strong JWT secret (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
+
+### Start the Server
+
+```bash
+# Set up .env file (see .env.example)
+# Ensure DATABASE_URL, JWT_SECRET, and OPENAI_API_KEY are set
+
+# Run migrations
+npm run migrate
+
+# Start development server
+npm run dev
+
+# Or build and start production
+npm run build
+npm start
+```
+
+Server will start on `http://localhost:3001` (or your configured PORT)
+
+### API Endpoints
+
+#### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and get JWT token
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current user profile
+- `PUT /api/auth/me` - Update user profile
+
+#### RSS Feeds (Protected)
+- `GET /api/feeds` - List all feeds
+- `POST /api/feeds` - Create new feed
+- `GET /api/feeds/:id` - Get single feed
+- `PUT /api/feeds/:id` - Update feed
+- `DELETE /api/feeds/:id` - Delete feed
+- `POST /api/feeds/test` - Test feed URL
+
+#### Analysis Prompts (Protected)
+- `GET /api/prompts` - List prompts
+- `POST /api/prompts` - Create prompt
+- `GET /api/prompts/:id` - Get prompt
+- `PUT /api/prompts/:id` - Update prompt
+- `DELETE /api/prompts/:id` - Delete prompt
+
+#### Analysis Jobs (Protected)
+- `POST /api/jobs` - Create and start analysis job
+- `GET /api/jobs` - List jobs
+- `GET /api/jobs/:id` - Get job details
+- `GET /api/jobs/:id/progress` - Real-time progress (SSE)
+- `GET /api/jobs/:id/results` - Get analyzed articles
+- `DELETE /api/jobs/:id` - Cancel job
+
+All protected endpoints require `Authorization: Bearer <token>` header.
+
+### Example: Running an Analysis
+
+```bash
+# 1. Register user
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"SecurePass123!","name":"User"}'
+
+# 2. Login
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"SecurePass123!"}'
+# Save the access_token from response
+
+# 3. Add RSS feed
+curl -X POST http://localhost:3001/api/feeds \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"url":"https://news.ycombinator.com/rss","name":"Hacker News"}'
+
+# 4. Create analysis prompt
+curl -X POST http://localhost:3001/api/prompts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"name":"AI Filter","prompt_text":"Analyze for AI relevance...","is_default":true}'
+
+# 5. Run analysis job
+curl -X POST http://localhost:3001/api/jobs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"min_relevance_score":50,"export_format":"html"}'
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for production deployment instructions.
+
+---
+
+## CLI Mode Quick Start
 
 The easiest way to run the complete pipeline:
 

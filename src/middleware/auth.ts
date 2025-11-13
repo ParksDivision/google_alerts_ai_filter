@@ -27,7 +27,13 @@ export async function authenticateToken(
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+    // Debug logging
+    console.log('Auth middleware - Path:', req.path);
+    console.log('Auth middleware - Auth header present:', !!authHeader);
+    console.log('Auth middleware - Token extracted:', token ? `${token.substring(0, 20)}...` : 'none');
+
     if (!token) {
+      console.log('Auth middleware - No token provided');
       res.status(401).json({
         success: false,
         error: 'Access token required',
@@ -36,8 +42,10 @@ export async function authenticateToken(
     }
 
     const decoded = verifyToken(token);
+    console.log('Auth middleware - Token decoded:', !!decoded, 'Type:', decoded?.type);
 
     if (!decoded || decoded.type !== 'access') {
+      console.log('Auth middleware - Invalid token or wrong type');
       res.status(403).json({
         success: false,
         error: 'Invalid or expired token',
@@ -51,6 +59,7 @@ export async function authenticateToken(
       email: decoded.email,
     };
 
+    console.log('Auth middleware - Success, user:', decoded.email);
     next();
   } catch (error) {
     console.error('Authentication error:', error);

@@ -9,6 +9,7 @@ import jobRoutes from './routes/jobs.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { testConnection } from './db/connection.js';
 import { validateAndExitOnError } from './utils/validateEnv.js';
+import { logger } from './utils/logger.js';
 
 // Load environment variables
 config();
@@ -46,9 +47,11 @@ export function createApiServer(): Express {
   // Hide Express server information
   app.disable('x-powered-by');
 
-  // CORS configuration
+  // CORS configuration - Allow all origins in development
   const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.NODE_ENV === 'production'
+      ? (process.env.FRONTEND_URL || 'http://localhost:3000')
+      : true, // Allow all origins in development
     credentials: true,
     optionsSuccessStatus: 200,
     maxAge: 86400, // 24 hours
@@ -145,8 +148,12 @@ export function createApiServer(): Express {
   // Error Handler
   // ============================================================================
 
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Error:', err);
+  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+    logger.error('Unhandled error', err, {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+    });
 
     res.status(500).json({
       success: false,
@@ -166,13 +173,20 @@ export async function startApiServer(port: number = 3001): Promise<void> {
   const app = createApiServer();
 
   // Test database connection before starting server
+  logger.info('Testing database connection...');
   const dbConnected = await testConnection();
   if (!dbConnected) {
-    console.error('Failed to connect to database. Please check your DATABASE_URL.');
+    logger.error('Failed to connect to database. Please check your DATABASE_URL.');
     process.exit(1);
   }
+  logger.info('Database connection successful');
 
   app.listen(port, () => {
+    logger.info('API Server started', {
+      port,
+      environment: process.env.NODE_ENV || 'development',
+      nodeVersion: process.version,
+    });
     console.log(`\n🚀 API Server running on port ${port}`);
     console.log(`   Health check: http://localhost:${port}/health`);
     console.log(`   API endpoints: http://localhost:${port}/api`);

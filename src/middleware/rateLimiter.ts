@@ -45,7 +45,7 @@ export const registerLimiter = rateLimit({
 // Limiter for expensive operations (like starting analysis jobs)
 export const jobLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 jobs per minute
+  max: parseInt(process.env.RATE_LIMIT_JOB_MAX || '50', 10), // 50 jobs per minute
   message: {
     success: false,
     error: 'Too many job requests, please wait a moment.',

@@ -58,6 +58,13 @@ logs
 # Temporary files
 tmp/
 temp/
+nul
+
+# Local development scripts (Windows-specific)
+kill-and-start.ps1
+setup-database.bat
+start-server.js
 
 # Cost tracking and usage data
 claude_cost_tracking.json
+openai_cost_tracking.json

@@ -132,7 +132,10 @@ router.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
 
 /**
  * GET /api/jobs/:id/progress
- * Server-Sent Events endpoint for real-time progress tracking
+ * Get current progress for a job (polling-based)
+ *
+ * Note: SSE endpoint was removed because EventSource doesn't support custom headers (like Authorization).
+ * Frontends should poll this endpoint every 1-2 seconds while job is running.
  */
 router.get('/:id/progress', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -149,54 +152,25 @@ router.get('/:id/progress', async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Set headers for Server-Sent Events
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
-    // Send initial progress state
+    // Get current progress state
     const currentProgress = progressTracker.getProgress(jobId);
-    res.write(`data: ${JSON.stringify(currentProgress)}\n\n`);
 
-    // If job is already completed/failed, close connection
-    if (currentProgress && (currentProgress.status === 'completed' || currentProgress.status === 'failed')) {
-      res.end();
-      return;
-    }
-
-    // Listen for progress updates
-    const progressHandler = (update: any) => {
-      res.write(`data: ${JSON.stringify(update)}\n\n`);
-
-      // Close connection if job is done
-      if (update.status === 'completed' || update.status === 'failed') {
-        res.end();
-      }
-    };
-
-    progressTracker.on(`progress:${jobId}`, progressHandler);
-
-    // Clean up when client disconnects
-    req.on('close', () => {
-      progressTracker.off(`progress:${jobId}`, progressHandler);
-      res.end();
-    });
-
-    // Send keep-alive every 30 seconds
-    const keepAliveInterval = setInterval(() => {
-      res.write(':keep-alive\n\n');
-    }, 30000);
-
-    // Clean up interval on connection close
-    req.on('close', () => {
-      clearInterval(keepAliveInterval);
+    res.json({
+      success: true,
+      data: {
+        progress: currentProgress || {
+          jobId,
+          progress: job.progress || 0,
+          status: job.status,
+          currentStep: job.current_step,
+        },
+      },
     });
   } catch (error: any) {
-    console.error('Error in progress endpoint:', error);
+    console.error('Error getting job progress:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to track progress',
+      error: error.message || 'Failed to get job progress',
     });
   }
 });

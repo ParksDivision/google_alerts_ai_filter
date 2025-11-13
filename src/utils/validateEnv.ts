@@ -4,6 +4,9 @@
  * Fails fast if critical configuration is missing
  */
 
+import { existsSync } from 'fs';
+import { join } from 'path';
+
 export interface EnvironmentValidationResult {
   valid: boolean;
   errors: string[];
@@ -127,17 +130,41 @@ export function validateEnvironment(): EnvironmentValidationResult {
 }
 
 /**
+ * Check if .env file exists in development
+ */
+function checkEnvFile(): string[] {
+  const warnings: string[] = [];
+  const env = process.env.NODE_ENV || 'development';
+
+  // Only check in development (production uses env vars from platform)
+  if (env === 'development') {
+    const envPath = join(process.cwd(), '.env');
+    if (!existsSync(envPath)) {
+      warnings.push('.env file not found. Copy .env.example to .env and configure your settings.');
+    }
+  }
+
+  return warnings;
+}
+
+/**
  * Print validation results and exit if errors found
  */
 export function validateAndExitOnError(): void {
   console.log('🔍 Validating environment variables...\n');
 
+  // Check for .env file first
+  const envFileWarnings = checkEnvFile();
+
   const result = validateEnvironment();
 
+  // Merge env file warnings with validation warnings
+  const allWarnings = [...envFileWarnings, ...result.warnings];
+
   // Print warnings
-  if (result.warnings.length > 0) {
+  if (allWarnings.length > 0) {
     console.warn('⚠️  WARNINGS:');
-    result.warnings.forEach(warning => {
+    allWarnings.forEach(warning => {
       console.warn(`   - ${warning}`);
     });
     console.warn('');
