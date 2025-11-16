@@ -43,15 +43,17 @@ const ConfigSchema = z.object({
     maxConcurrent: z.coerce.number().int().positive().default(10),
   }),
 
-  // Claude API settings (legacy/optional)
+  // Claude API settings (primary)
   claude: z.object({
     apiKey: z.string().default(''),
-    model: z.string().default('claude-3-haiku-20240307'),
-    maxTokensPerRequest: z.coerce.number().int().positive().default(4000),
+    model: z.string().default('claude-haiku-4.5-20250929'),
+    maxTokensPerRequest: z.coerce.number().int().positive().default(8192),
     monthlyCostLimit: z.coerce.number().positive().default(20.0),
-    haiku_input_cost_per_1k: z.coerce.number().positive().default(0.00025),
-    haiku_output_cost_per_1k: z.coerce.number().positive().default(0.00125),
-    requestsPerMinute: z.coerce.number().int().positive().default(15),
+    // Claude Haiku 4.5 pricing (as of 2025)
+    haiku_input_cost_per_1k: z.coerce.number().positive().default(0.0008),  // $0.80 per 1M tokens
+    haiku_output_cost_per_1k: z.coerce.number().positive().default(0.004),  // $4.00 per 1M tokens
+    // Build tier limits: 50 RPM, 50k TPM, 5M TPD
+    requestsPerMinute: z.coerce.number().int().positive().default(50),
     maxConcurrent: z.coerce.number().int().positive().default(5),
   }),
   

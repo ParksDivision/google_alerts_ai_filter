@@ -1,6 +1,20 @@
 # Heroku Deployment Guide
 
-Deploy your RSS Content Analyzer API to Heroku in minutes with PostgreSQL database.
+Deploy your RSS Content Analyzer API to Heroku in minutes with PostgreSQL database and Claude AI.
+
+---
+
+## Quick Reference
+
+**What you'll deploy:**
+- Node.js/TypeScript backend API
+- PostgreSQL database (1GB)
+- Claude Haiku 4.5 AI analyzer
+- JWT authentication
+- Rate limiting & cost controls
+
+**Total time:** ~10 minutes
+**Monthly cost:** ~$12-30 (Heroku) + $20-50 (Claude API)
 
 ---
 
@@ -10,7 +24,7 @@ Before deploying, you need:
 
 1. **Heroku Account** - [Sign up free](https://signup.heroku.com/)
 2. **Heroku CLI** - [Download installer](https://devcenter.heroku.com/articles/heroku-cli)
-3. **OpenAI API Key** - [Get from OpenAI](https://platform.openai.com/api-keys)
+3. **Claude API Key** - [Get from Anthropic Console](https://console.anthropic.com/settings/keys)
 4. **Git** - Ensure your code is committed
 
 ---
@@ -61,20 +75,23 @@ This automatically sets `DATABASE_URL` environment variable.
 # Required: Set production mode
 heroku config:set NODE_ENV=production
 
-# Required: Generate and set JWT secret
+# Required: Generate and set JWT secret (run this to generate a secure secret)
 heroku config:set JWT_SECRET="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
 
-# Required: Set your OpenAI API key
-heroku config:set OPENAI_API_KEY="your-openai-api-key-here"
+# Required: Set your Claude API key
+heroku config:set CLAUDE_API_KEY="sk-ant-api03-your-key-here"
 
-# Required: Set your frontend URL (or use * for development)
+# Required: Set your frontend URL (replace with your actual frontend domain)
 heroku config:set FRONTEND_URL="https://your-frontend.com"
 
-# Optional: Set OpenAI model (default: gpt-5-mini)
-heroku config:set OPENAI_MODEL="gpt-5-mini"
+# Optional: Set Claude model (default: claude-haiku-4.5-20250929)
+heroku config:set CLAUDE_MODEL="claude-haiku-4.5-20250929"
 
-# Optional: Set monthly cost limit (default: $50)
-heroku config:set MONTHLY_COST_LIMIT="50.00"
+# Optional: Set monthly cost limit in USD (default: $20)
+heroku config:set MONTHLY_COST_LIMIT="20.00"
+
+# Optional: Set max tokens per request (default: 4096)
+heroku config:set CLAUDE_MAX_TOKENS="4096"
 
 # Optional: Set log level (default: info)
 heroku config:set LOG_LEVEL="info"
@@ -83,28 +100,119 @@ heroku config:set LOG_LEVEL="info"
 ### 6. Deploy to Heroku
 
 ```bash
-# Push code to Heroku (deploys automatically)
+# Make sure all changes are committed
+git add .
+git commit -m "Prepare for Heroku deployment"
+
+# Push code to Heroku (triggers automatic deployment)
 git push heroku main
 ```
 
 **What happens during deployment:**
-1. Heroku detects Node.js app
+1. Heroku detects Node.js app from package.json
 2. Installs dependencies (`npm install`)
-3. Builds TypeScript code (`npm run build`)
-4. Runs database migrations (automatic via Procfile)
-5. Starts your API server
+3. Builds TypeScript code (`npm run build` via heroku-postbuild)
+4. Runs database migrations automatically (via Procfile release phase)
+5. Starts your API server on Heroku-assigned PORT
+
+**Expected output:**
+```
+-----> Node.js app detected
+-----> Installing dependencies
+-----> Building
+-----> Running migrations
+-----> Launching...
+       https://your-app.herokuapp.com deployed to Heroku
+```
 
 ### 7. Verify Deployment
 
 ```bash
-# Check if app is running
+# Check if app is running (should return {"success":true,"status":"healthy"})
 heroku open /health
 
-# View logs
+# Or use curl
+curl https://your-app-name.herokuapp.com/health
+
+# View real-time logs to check for errors
 heroku logs --tail
 
-# Check database migrations
+# Verify database migrations completed successfully
 heroku run node scripts/migrate-built.js status
+```
+
+**Expected health response:**
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "timestamp": "2025-01-16T12:00:00.000Z",
+  "database": "connected"
+}
+```
+
+**If health check fails:**
+1. Check logs: `heroku logs --tail`
+2. Verify all required env vars are set: `heroku config`
+3. Check database is provisioned: `heroku pg:info`
+4. Restart the app: `heroku restart`
+
+---
+
+## Common Deployment Issues
+
+### Issue 1: Missing Required Environment Variables
+**Symptoms:** App crashes immediately after deployment
+
+**Solution:**
+```bash
+# Check which variables are set
+heroku config
+
+# Set missing required variables (see section 5 above)
+heroku config:set CLAUDE_API_KEY="your-key"
+heroku config:set JWT_SECRET="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
+heroku config:set FRONTEND_URL="https://your-frontend.com"
+```
+
+### Issue 2: Build Fails During TypeScript Compilation
+**Symptoms:** Deployment fails with "tsc: command not found" or TypeScript errors
+
+**Solution:**
+```bash
+# Test build locally first
+npm run build
+
+# If local build succeeds but Heroku fails, ensure package.json has correct scripts
+# Check that devDependencies include typescript and all @types packages
+```
+
+### Issue 3: Database Migrations Not Running
+**Symptoms:** Tables don't exist, app crashes with "relation does not exist" errors
+
+**Solution:**
+```bash
+# Check migration status
+heroku run node scripts/migrate-built.js status
+
+# Run migrations manually
+heroku run node scripts/migrate-built.js up
+
+# Restart app
+heroku restart
+```
+
+### Issue 4: Wrong Branch Pushed to Heroku
+**Symptoms:** Old code is deployed
+
+**Solution:**
+```bash
+# If you're not on main branch, push your current branch to Heroku's main
+git push heroku your-branch-name:main
+
+# Or checkout main first
+git checkout main
+git push heroku main
 ```
 
 ---
@@ -116,22 +224,35 @@ heroku run node scripts/migrate-built.js status
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `NODE_ENV` | Environment mode | `production` |
-| `JWT_SECRET` | Secret for JWT tokens (32+ chars) | Generate with crypto |
-| `OPENAI_API_KEY` | OpenAI API key | `sk-proj-...` |
+| `JWT_SECRET` | Secret for JWT tokens (32+ hex chars) | `a1b2c3d4e5f6...` (64 chars) |
+| `CLAUDE_API_KEY` | Anthropic Claude API key | `sk-ant-api03-...` |
 | `FRONTEND_URL` | Your frontend URL for CORS | `https://yourapp.com` |
-| `DATABASE_URL` | PostgreSQL connection (auto-set) | Auto-configured by Heroku |
+| `DATABASE_URL` | PostgreSQL connection string | Auto-configured by Heroku |
 
 ### Optional Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model to use |
-| `OPENAI_MAX_TOKENS` | `4000` | Max tokens per request |
-| `OPENAI_REQUESTS_PER_MINUTE` | `60` | Rate limit for API |
-| `MONTHLY_COST_LIMIT` | `50.00` | Monthly spending limit (USD) |
+| `CLAUDE_MODEL` | `claude-haiku-4.5-20250929` | Claude model (haiku-4.5, sonnet-4.5, opus-4.5) |
+| `CLAUDE_MAX_TOKENS` | `4096` | Max tokens per request |
+| `CLAUDE_REQUESTS_PER_MINUTE` | `50` | Rate limit for Claude API |
+| `MONTHLY_COST_LIMIT` | `20.00` | Monthly spending limit in USD |
 | `LOG_LEVEL` | `info` | Logging level (debug/info/warn/error) |
-| `RATE_LIMIT_MAX_REQUESTS` | `10000` | API rate limit (per 15 min) |
-| `RATE_LIMIT_JOB_MAX` | `50` | Job creation limit (per min) |
+| `API_PORT` | `3001` | API server port (Heroku overrides with PORT) |
+| `RATE_LIMIT_MAX_REQUESTS` | `10000` | API rate limit per 15 minutes |
+| `RATE_LIMIT_JOB_MAX` | `50` | Job creation limit per minute |
+
+### Alternative: OpenAI (Optional Fallback)
+
+If you want to use OpenAI as a fallback, you can also set:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | None | OpenAI API key (used if Claude key not available) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model to use |
+| `OPENAI_MAX_TOKENS` | `1000` | Max tokens per OpenAI request |
+| `OPENAI_REQUESTS_PER_MINUTE` | `3` | OpenAI rate limit (adjust per your tier) |
+| `OPENAI_MAX_CONCURRENT` | `1` | Max concurrent OpenAI requests |
 
 ---
 
@@ -306,19 +427,43 @@ heroku restart
 # View crash logs
 heroku logs --tail
 
-# Check environment variables
+# Check environment variables are set
 heroku config
 
-# Verify all required variables are set
+# Verify required variables (NODE_ENV, JWT_SECRET, CLAUDE_API_KEY, FRONTEND_URL, DATABASE_URL)
+# Missing variables will cause startup failure
 ```
 
 **Issue: CORS errors from frontend**
 ```bash
-# Update FRONTEND_URL
+# Update FRONTEND_URL to match your frontend domain
 heroku config:set FRONTEND_URL="https://your-frontend.com"
 
-# For development/testing, allow all origins (NOT recommended for production)
+# For development/testing only, allow all origins (NOT for production)
 heroku config:set FRONTEND_URL="*"
+```
+
+**Issue: Claude API errors (401 Unauthorized)**
+```bash
+# Verify API key is set correctly
+heroku config:get CLAUDE_API_KEY
+
+# Update with correct key from https://console.anthropic.com/settings/keys
+heroku config:set CLAUDE_API_KEY="sk-ant-api03-your-key-here"
+
+# Restart app
+heroku restart
+```
+
+**Issue: Monthly cost limit reached**
+```bash
+# Check current usage (view cost tracking in logs)
+heroku logs --tail | grep "cost"
+
+# Increase limit if needed
+heroku config:set MONTHLY_COST_LIMIT="50.00"
+
+# Or wait until next month (tracking resets monthly)
 ```
 
 ---
@@ -354,32 +499,36 @@ heroku addons:upgrade heroku-postgresql:standard-0
 
 **Heroku Costs:**
 - Eco Dyno: $5/month (shared, sleeps after 30 min inactivity)
-- Basic Dyno: $7/month (never sleeps)
-- PostgreSQL Essential-0: $5/month (1GB storage)
+- Basic Dyno: $7/month (never sleeps, recommended)
+- PostgreSQL Essential-0: $5/month (1GB storage, 20 connections)
 - **Total: ~$10-12/month**
 
-**AI API Costs:**
-- Based on your usage
+**Claude API Costs (as of 2025):**
+- Claude Haiku 4.5: ~$0.80 per 1M input tokens, ~$4.00 per 1M output tokens
+- Estimated cost: ~$0.01-0.05 per article analyzed (varies by content length)
 - Configure `MONTHLY_COST_LIMIT` to prevent overspending
-- Default limit: $50/month
+- Default limit: $20/month
+- Example: $20 can analyze ~400-2000 articles per month
 
 ---
 
 ## Production Checklist
 
-Before going live:
+Before going live, verify:
 
-- [ ] Set strong `JWT_SECRET` (32+ characters)
-- [ ] Configure `FRONTEND_URL` to your actual domain
-- [ ] Set `NODE_ENV=production`
-- [ ] Configure OpenAI API key with billing enabled
-- [ ] Set appropriate `MONTHLY_COST_LIMIT`
-- [ ] Test health endpoint: `/health`
-- [ ] Test authentication: `/api/auth/login`
-- [ ] Verify database migrations ran successfully
-- [ ] Set up monitoring/alerts
-- [ ] Enable Heroku automated backups
-- [ ] Document your environment variables
+- [ ] `JWT_SECRET` is set (64 character hex string from crypto.randomBytes)
+- [ ] `CLAUDE_API_KEY` is set with valid API key from Anthropic Console
+- [ ] `FRONTEND_URL` is set to your actual frontend domain
+- [ ] `NODE_ENV=production` is set
+- [ ] `DATABASE_URL` is auto-configured by Heroku PostgreSQL addon
+- [ ] `MONTHLY_COST_LIMIT` is set appropriately (default: $20)
+- [ ] Database migrations ran successfully (`heroku run node scripts/migrate-built.js status`)
+- [ ] Health endpoint works: `curl https://your-app.herokuapp.com/health`
+- [ ] Can register user: `POST /api/auth/register`
+- [ ] Can login: `POST /api/auth/login`
+- [ ] Frontend can connect to backend without CORS errors
+- [ ] Enable Heroku automated database backups
+- [ ] Monitor logs for first 24 hours after deployment
 
 ---
 

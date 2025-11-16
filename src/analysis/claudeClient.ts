@@ -16,11 +16,16 @@ export interface CostTracking {
 
 // Constants for Claude models' token limits
 const MODEL_TOKEN_LIMITS: Record<string, number> = {
+  // Claude 4.5 models (2025)
+  'claude-haiku-4.5-20250929': 8192,
+  'claude-sonnet-4.5-20250929': 8192,
+  'claude-opus-4.5-20250929': 8192,
+  // Claude 3 models (legacy)
   'claude-3-haiku-20240307': 4096,
   'claude-3-sonnet-20240229': 4096,
   'claude-3-opus-20240229': 4096,
-  // Add other models as needed
-  'default': 4000 // Default fallback
+  // Default fallback
+  'default': 8192
 };
 
 // Initialize Anthropic client with API key validation
@@ -94,11 +99,11 @@ export async function saveCostTracking(): Promise<void> {
 
 /**
  * Calculate cost based on token usage
- * Current Claude Haiku pricing: $0.00025/1K input tokens, $0.00125/1K output tokens
+ * Claude Haiku 4.5 pricing (as of 2025): $0.80/1M input tokens, $4.00/1M output tokens
  */
 export function calculateCost(inputTokens: number, outputTokens: number): number {
-  const inputCost = (inputTokens / 1000) * 0.00025; // $0.00025 per 1K input tokens
-  const outputCost = (outputTokens / 1000) * 0.00125; // $0.00125 per 1K output tokens
+  const inputCost = (inputTokens / 1000) * CONFIG.claude.haiku_input_cost_per_1k;
+  const outputCost = (outputTokens / 1000) * CONFIG.claude.haiku_output_cost_per_1k;
   return inputCost + outputCost;
 }
 

@@ -43,6 +43,7 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+.claude/
 
 # OS files
 .DS_Store
@@ -64,6 +65,12 @@ nul
 kill-and-start.ps1
 setup-database.bat
 start-server.js
+
+# Test files and scripts
+test-*.sh
+test-*.md
+*test*.ts
+scripts/test-*.ts
 
 # Cost tracking and usage data
 claude_cost_tracking.json

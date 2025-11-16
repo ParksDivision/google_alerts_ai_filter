@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import feedRoutes from './routes/feeds.js';
 import promptRoutes from './routes/prompts.js';
 import jobRoutes from './routes/jobs.js';
+import statsRoutes from './routes/stats.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { testConnection } from './db/connection.js';
 import { validateAndExitOnError } from './utils/validateEnv.js';
@@ -112,6 +113,9 @@ export function createApiServer(): Express {
   // Analysis Job routes
   app.use('/api/jobs', jobRoutes);
 
+  // Stats routes (AI cost tracking, usage, etc.)
+  app.use('/api/stats', statsRoutes);
+
   // ============================================================================
   // Root Route
   // ============================================================================
@@ -127,6 +131,7 @@ export function createApiServer(): Express {
         feeds: '/api/feeds/*',
         prompts: '/api/prompts/*',
         jobs: '/api/jobs/*',
+        stats: '/api/stats/*',
         docs: 'Coming soon',
       },
     });
@@ -195,7 +200,13 @@ export async function startApiServer(port: number = 3001): Promise<void> {
 }
 
 // Start server if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isRunDirectly = process.argv[1] && (
+  import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/')) ||
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1].includes('api.js')
+);
+
+if (isRunDirectly) {
   const port = parseInt(process.env.API_PORT || process.env.PORT || '3001', 10);
   startApiServer(port).catch(console.error);
 }

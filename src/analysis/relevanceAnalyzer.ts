@@ -5,23 +5,23 @@ import CONFIG from '../config.js';
 
 /**
  * Determine which AI client to use based on available API keys
- * Priority: OpenAI > Claude
+ * Priority: Claude > OpenAI
  */
 function getAnalyzeTextFunction() {
-  // Check if OpenAI API key is available (prioritize OpenAI)
-  if (process.env.OPENAI_API_KEY) {
-    console.log('Using OpenAI API for analysis');
-    return analyzeTextWithOpenAI;
-  }
-
-  // Fall back to Claude if OpenAI is not available
+  // Check if Claude API key is available (prioritize Claude)
   if (process.env.CLAUDE_API_KEY) {
     console.log('Using Claude API for analysis');
     return analyzeTextWithClaude;
   }
 
+  // Fall back to OpenAI if Claude is not available
+  if (process.env.OPENAI_API_KEY) {
+    console.log('Using OpenAI API for analysis');
+    return analyzeTextWithOpenAI;
+  }
+
   // If neither is available, throw an error
-  throw new Error('No AI API key configured. Please set either OPENAI_API_KEY or CLAUDE_API_KEY in your environment variables.');
+  throw new Error('No AI API key configured. Please set either CLAUDE_API_KEY or OPENAI_API_KEY in your environment variables.');
 }
 
 // Get the appropriate analyze function

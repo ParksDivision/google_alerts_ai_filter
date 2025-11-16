@@ -44,10 +44,11 @@ if (!process.env.OPENAI_API_KEY && process.env.NODE_ENV === 'production') {
 }
 
 // Initialize request queue with rate limiting
+// Default to very conservative limits for Free/Tier 1 accounts
 const requestQueue = new PQueue({
-  concurrency: parseInt(process.env.OPENAI_MAX_CONCURRENT || '10', 10),
+  concurrency: parseInt(process.env.OPENAI_MAX_CONCURRENT || '1', 10), // Only 1 concurrent request
   interval: 60 * 1000, // 1 minute
-  intervalCap: parseInt(process.env.OPENAI_REQUESTS_PER_MINUTE || '60', 10),
+  intervalCap: parseInt(process.env.OPENAI_REQUESTS_PER_MINUTE || '3', 10), // Only 3 RPM for free tier
   autoStart: true,
 });
 
@@ -166,7 +167,41 @@ export async function checkCostLimit(): Promise<boolean> {
 }
 
 /**
- * Analyze text with OpenAI GPT-5
+ * Retry with exponential backoff
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 5,
+  initialDelay = 1000
+): Promise<T> {
+  let retries = 0;
+  let delay = initialDelay;
+
+  while (true) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      // Only retry on rate limit errors
+      if (error.status !== 429 || retries >= maxRetries) {
+        throw error;
+      }
+
+      retries++;
+      // Add jitter to prevent thundering herd
+      const jitter = Math.random() * 1000;
+      const sleepTime = delay + jitter;
+
+      console.log(`Rate limited. Retry ${retries}/${maxRetries} in ${Math.round(sleepTime/1000)}s...`);
+      await new Promise(resolve => setTimeout(resolve, sleepTime));
+
+      // Exponential backoff
+      delay *= 2;
+    }
+  }
+}
+
+/**
+ * Analyze text with OpenAI GPT-5 with retry logic
  */
 export async function analyzeText(
   text: string,
@@ -195,24 +230,26 @@ export async function analyzeText(
       return 'RELEVANCE_SCORE: 0\nEXPLANATION: Analysis skipped due to cost constraints.';
     }
 
-    // Add the request to the rate-limited queue
+    // Add the request to the rate-limited queue with retry
     const completion = await requestQueue.add(async () => {
-      console.log(`Sending request to OpenAI API (${model}) with max_tokens=${maxResponseTokens}...`);
+      return await retryWithBackoff(async () => {
+        console.log(`Sending request to OpenAI API (${model}) with max_tokens=${maxResponseTokens}...`);
 
-      return await client.chat.completions.create({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: prompt,
-          },
-          {
-            role: 'user',
-            content: safeText,
-          },
-        ],
-        max_tokens: maxResponseTokens,
-        temperature: 0.7,
+        return await client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: prompt,
+            },
+            {
+              role: 'user',
+              content: safeText,
+            },
+          ],
+          max_tokens: maxResponseTokens,
+          temperature: 0.7,
+        });
       });
     });
 

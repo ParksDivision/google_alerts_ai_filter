@@ -7,20 +7,11 @@
   "scripts": {
     "build": "rimraf dist && tsc",
     "start": "node dist/api.js",
-    "dev": "ts-node --esm src/api.ts",
+    "dev": "npm run build && node dist/api.js",
     "heroku-postbuild": "npm run build",
     "lint": "eslint --ext .ts src/",
-    "cli": "node dist/index.js",
-    "cli:dev": "ts-node --esm src/index.ts",
-    "analyze": "node dist/index.js analyze",
-    "serve": "node dist/index.js serve",
-    "process-rss": "node dist/index.js process-rss",
-    "process-rss-fixed": "node dist/test-fixed-processor.js",
-    "run-all": "node dist/index.js run-all",
-    "migrate": "ts-node --esm scripts/migrate.ts up",
-    "migrate:status": "ts-node --esm scripts/migrate.ts status",
-    "db:test": "ts-node --esm scripts/test-db.ts",
-    "import-feeds": "ts-node --esm scripts/import-feeds-from-csv.ts"
+    "migrate": "node scripts/migrate-built.js up",
+    "migrate:status": "node scripts/migrate-built.js status"
   },
   "keywords": [
     "rss",
